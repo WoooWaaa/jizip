@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14342e">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="记账本"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>记账本</title>
+<link rel="manifest" href="manifest.json"><link rel="icon" href="icon-v3-192.png"><link rel="apple-touch-icon" href="icon-v3-180.png">
+<script src="xlsx.full.min.js"></script>
+<script src="chart.umd.js"></script>
+<style>
+:root{--page:#edf1ef;--bg:#edf1ef;--ink:#14342e;--mut:#5d716c;--card:#fff;--line:#d3dcd9;--acc:#14342e;--hi:#c98a00;--bad:#b3392f;--ok:#1f7a4d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:16px/1.5 "Noto Sans SC",system-ui,-apple-system,sans-serif;padding:0 0 env(safe-area-inset-bottom)}
+main{max-width:720px;margin:0 auto;padding:12px 12px 90px}
+h2{font-size:17px;margin:0 0 8px}
+.card{background:rgba(255,255,255,.95);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--acc);padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{flex:1;background:none;border:0;color:#a9c2bc;padding:14px 0;font:inherit;font-size:14px}
+nav button.on{color:#fff;box-shadow:inset 0 3px var(--hi)}
+label{display:block;font-size:13px;color:var(--mut);margin:8px 0 3px}
+input,select{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:var(--ink)}
+button.pri{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:11px 16px;font:inherit;margin-top:12px;width:100%}
+button.sec{background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font:inherit;font-size:14px}
+button.sm{padding:2px 8px;font-size:13px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.big{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+.k{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.k:last-child{border:0}
+.lr{display:flex;align-items:center;gap:8px;min-width:0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:6px;margin-top:4px}
+.tile{position:relative;border:2px solid var(--line);border-radius:10px;padding:6px 2px;text-align:center;background:#fff;font:inherit;font-size:12px;color:var(--ink)}
+.tile.on{border-color:var(--hi);background:#fbefd0}
+.ic{display:block;width:34px;height:34px;line-height:34px;font-size:26px;text-align:center;object-fit:cover;border-radius:8px;margin:0 auto;flex:none}
+.k .ic{width:28px;height:28px;line-height:28px;font-size:20px;margin:0}
+.ph{display:flex;align-items:center;gap:10px;margin-bottom:6px}.ph .ic{margin:0;width:42px;height:42px;line-height:42px;font-size:30px}
+.mut{color:var(--mut);font-size:13px}.pos{color:var(--ok)}.neg{color:var(--bad)}.hide{display:none}
+.seg{display:flex;gap:6px;margin:6px 0}.seg button{flex:1;padding:9px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;color:inherit}.seg button.on{background:var(--acc);color:#fff}
+.ch{display:flex;align-items:center;gap:6px;margin-bottom:6px}.ch b{flex:1;text-align:center}
+.wk,.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.wk div{text-align:center;font-size:12px;color:var(--mut)}
+.cd{min-height:54px;border:1px solid var(--line);border-radius:6px;padding:2px 1px;font:inherit;font-size:13px;text-align:center;background:#fff;color:inherit}
+.cd small{display:block;font-size:10px;line-height:1.25}.cd .e{color:var(--bad)}.cd .i{color:var(--ok)}
+.cd.sel{background:#fbefd0;outline:3px solid var(--hi);outline-offset:-2px}.cd.today{background:var(--acc);color:#fff;border-color:var(--acc)}.cd.today .tg{display:block;font-size:10px;line-height:1.2;color:#ffd36b;font-weight:700}.cd.today small.e{color:#ffb4a8}.cd.today small.i{color:#9ee6bd}.cd.o{visibility:hidden}.pt{font-size:19px;font-weight:700;text-align:center;margin:0 0 8px}
+.cv{position:relative;height:300px}
+.mgr{border:1px dashed var(--line);border-radius:8px;padding:8px;margin-top:8px}
+header{position:sticky;top:0;z-index:6;background:var(--acc);color:#fff;display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
+header b{font-size:18px;flex:1}
+.hb{background:rgba(255,255,255,.16);color:#fff;border:0;border-radius:8px;padding:6px 11px;font:inherit;font-size:15px}
+.ov{position:fixed;inset:0;z-index:20;background:var(--page);overflow:auto}
+.ovh{position:sticky;top:0;z-index:2;background:var(--acc);color:#fff;display:flex;align-items:center;gap:10px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
+.ovh b{font-size:18px}
+.ovb{max-width:720px;margin:0 auto;padding:12px 12px 40px}
+.bar{height:10px;background:var(--bg);border-radius:5px;overflow:hidden;margin:3px 0 8px}.bar i{display:block;height:100%}
+.sw{display:block;height:34px;border-radius:8px;border:1px solid var(--line);margin-bottom:3px;background-size:cover}
+#fab{position:fixed;right:16px;bottom:calc(68px + env(safe-area-inset-bottom));width:58px;height:58px;border-radius:50%;border:0;background:var(--hi);color:#fff;font-size:36px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.35);z-index:7;padding:0}
+.tile.on{transform:scale(1.05)}
+button,.tile,.cd{transition:transform .08s ease,background-color .12s,filter .12s,box-shadow .12s;-webkit-tap-highlight-color:rgba(201,138,0,.28);touch-action:manipulation}
+button:active,.tile:active,.cd:active{transform:scale(.93);filter:brightness(.84)}
+button.pri:active{transform:scale(.97)}#fab:active{transform:scale(.88)}
+nav button:active{background:rgba(255,255,255,.18)}
+.rm{position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;background:var(--bad);color:#fff;font-weight:700;font-size:17px;line-height:21px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.35);z-index:2}
+.cm .tile{animation:wig .3s infinite alternate}
+@keyframes wig{from{transform:rotate(-1.6deg)}to{transform:rotate(1.6deg)}}
+#toast{position:fixed;left:50%;bottom:calc(132px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(20,52,46,.95);color:#fff;padding:9px 20px;border-radius:22px;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.on{opacity:1}
+.kp{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0 10px}
+.kp button{padding:13px 0;font:inherit;font-size:21px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.kp .op{background:#e8efec;font-weight:700}.kp .eq{background:var(--acc);color:#fff;grid-row:span 2;font-size:26px}.kp .z{grid-column:span 2}
+.amt{font-size:28px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.acard{position:relative}.dh{position:absolute;top:6px;right:8px;font-size:26px;line-height:1;color:var(--mut);touch-action:none;user-select:none;-webkit-user-select:none;padding:6px 8px;cursor:grab}
+.cm .tile{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+.cd .lu{color:var(--mut)}.cd .lu.fe{color:#c0392b;font-weight:700}
+.cd.today .lu{color:#d5e8e1}.cd.today .lu.fe{color:#ffd36b}
+.sec.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+</style>
+</head>
+<body>
+<header id="hd"><b>记账本</b><button class="hb" id="lg">EN</button><button class="hb" id="gear">⚙️</button></header>
+<main>
+
+<div id="settings" class="ov hide"><div class="ovh"><button class="hb" id="s-back">‹ 返回</button><b>设定</b></div><div class="ovb">
+  <div class="card"><div class="pt" style="text-align:left;margin:0" id="m-hi"></div><div class="mut" id="m-dt"></div>
+    <div class="mut" style="margin-top:8px">总资产</div><div class="big" id="m-net"></div><div id="m-mo" style="margin-top:6px"></div></div>
+  <div class="card"><h2>我的设定</h2>
+    <div class="row"><div><label>你的名字</label><input id="s-name"></div><div><label>通用货币</label><select id="s-base" class="cur"></select></div></div>
+    <div class="row"><div><label>默认账户</label><select id="s-acc"></select></div></div>
+    <label>语言 / Language</label><select id="s-lang"><option value="zh">中文</option><option value="en">English</option></select>
+    <label>农历</label><select id="s-lunar"><option value="0">不显示</option><option value="1">显示农历</option></select>
+    <p class="mut">通用货币是所有统计和图表使用的货币。外币账目会按记账当天的汇率折算:联网时自动取得,没有网络时先用估算汇率,之后联网会自动更正。</p></div>
+  <div class="card"><h2>外观 / 背景</h2>
+    <label>颜色</label><div class="tiles" id="bg-c"></div>
+    <label>风景</label><div class="tiles" id="bg-s"></div>
+    <label>自己的图片</label><input type="file" id="bg-file" accept="image/*">
+    <button class="sec" id="bg-rm" style="width:100%;margin-top:8px">移除我的图片</button></div>
+  <div class="card"><h2>数据:导入 / 导出</h2>
+    <p class="mut">支持你的记账 App 导出的表格(日期、类别、金额、账户、货币、成员、标签、备注、收支),新出现的分类和账户会自动建立;重复导入同一份不会重复记。也可选「完整备份」文件(.json)还原。</p>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv,.json"><div id="imp" class="mut" style="margin-top:8px"></div>
+    <div class="row" style="margin-top:10px"><button class="sec" id="exp">导出 Excel</button><button class="sec" id="bak">完整备份</button><button class="sec" id="clear">清空账目</button></div>
+    <button class="sec" id="reset" style="width:100%;margin-top:8px;color:var(--bad)">重置为全新(删除全部数据)</button></div>
+</div></div>
+
+<div id="entry" class="ov hide"><div class="ovh"><button class="hb" id="e-back">‹ 返回</button><b>新增记录</b></div><div class="ovb"><div class="card">
+    <label>日期</label><input type="date" id="f-date">
+    <div class="seg" id="seg"><button data-k="exp">支出</button><button data-k="inc">收入</button><button data-k="tr">转账</button></div>
+    <label>金额</label><input id="f-amt" class="amt" inputmode="none" autocomplete="off" placeholder="0">
+    <div class="mut" id="f-res" style="min-height:20px;text-align:right"></div>
+    <div class="kp" id="kp"><button data-v="C">C</button><button data-v="B">⌫</button><button class="op" data-v="÷">÷</button><button class="op" data-v="×">×</button>
+      <button data-v="7">7</button><button data-v="8">8</button><button data-v="9">9</button><button class="op" data-v="−">−</button>
+      <button data-v="4">4</button><button data-v="5">5</button><button data-v="6">6</button><button class="op" data-v="+">+</button>
+      <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button class="eq" data-v="=">=</button>
+      <button class="z" data-v="0">0</button><button data-v=".">.</button></div>
+    <label id="l-acc">账户</label><select id="f-acc"></select>
+    <div id="f-to" class="hide"><label>转入账户</label><select id="f-to2"></select></div>
+    <div id="f-cat"><label>类别 <button class="sec sm" id="mg-btn" style="margin-left:6px">新增 / 管理分类</button></label>
+      <div class="tiles" id="tiles"></div>
+      <div id="catmgr" class="mgr hide">
+        <div class="mut" style="margin-bottom:6px">长按图标拖动排序,点图标修改名称,点红色「−」删除。</div>
+        <input id="c-name" placeholder="新分类名称,例如:旅行、电脑">
+        <div class="tiles" id="c-emo"></div>
+        <div class="row" style="align-items:center;margin-top:6px"><input type="file" id="c-img" accept="image/*"><span id="c-prev" style="flex:0 0 40px"></span></div>
+        <button class="pri" id="c-add" style="margin-top:8px">添加分类</button><button class="sec" id="c-def" style="margin-top:8px;width:100%">补充推荐分类</button>
+              </div></div>
+    <label id="l-mem">花在谁身上</label><input id="f-mem" list="dl-mem" placeholder="留空 = 自己"><div class="chips" id="mem-chips"></div>
+    <label>标签</label><input id="f-tag" list="dl-tag">
+    <label>备注</label><input id="f-note">
+    <button class="pri" id="f-add">添加</button>
+  </div></div></div>
+<section id="t-book">
+  <div class="card">
+    <div class="ch"><button class="sec" id="pm">‹</button><b id="ym"></b><button class="sec" id="lu-btn">农历</button><button class="sec" id="td">今天</button><button class="sec" id="nm">›</button></div>
+    <div class="wk"><div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div></div>
+    <div class="cal" id="cal"></div>
+  </div>
+  <div class="card"><h2 id="dh"></h2><div class="mut" id="dl"></div><div class="mut" id="ds"></div><div id="dlist" style="margin-top:8px"></div></div>
+  <button id="fab" aria-label="add">+</button>
+</section>
+
+<section id="t-acc" class="hide">
+  <div class="card"><div class="mut" id="a-nl">总资产</div><div class="big" id="a-net"></div><div class="mut" id="a-sub"></div><div class="mut" style="margin-top:6px">按住账户右上角的「⠿」拖动,可以调整顺序。</div></div>
+  <div id="a-list"></div>
+  <div class="card"><h2>新增账户</h2>
+    <div class="mut">快速添加常用账户</div><div class="chips" id="n-quick" style="margin-bottom:6px"></div>
+    <div class="row"><div><label>名称</label><input id="n-name" placeholder="例如:Maybank"></div><div><label>类型</label><select id="n-type"><option>现金</option><option>银行</option><option>借记卡</option><option>信用卡</option><option>电子钱包</option><option>投资</option><option>其他</option></select></div></div>
+    <div class="row"><div><label>货币</label><select id="n-cur" class="cur"></select></div><div><label>目前余额(信用卡欠款填负数)</label><input type="number" id="n-open" inputmode="decimal" value="0"></div></div>
+    <button class="pri" id="n-add">添加账户</button></div>
+  <div class="card"><h2>汇率换算</h2>
+    <label>金额</label><input type="number" id="x-amt" value="100" inputmode="decimal">
+    <div class="row" style="align-items:flex-end;margin-top:6px"><div><label>从</label><select id="x-from" class="cur"></select></div><button class="sec" id="x-swap" style="flex:0 0 auto;margin-bottom:1px">⇄</button><div><label>换成</label><select id="x-to" class="cur"></select></div></div>
+    <div class="big" id="x-res" style="font-size:22px;margin-top:8px">—</div><div class="mut" id="x-line"></div>
+    <button class="sec" id="x-net" style="width:100%;margin-top:8px">联网更新汇率</button>
+    <label>手动设定汇率:1 <span id="x-f"></span> =</label><div class="row"><input type="number" step="any" id="x-rate"><button class="sec" id="x-set" style="flex:0 0 auto">保存</button></div>
+    <div class="mut" id="x-msg" style="margin-top:6px"></div>
+    <p class="mut">货币下拉选单里有 50 多种货币,没有的可以选最底下的「自定义货币」自己输入代码(自定义货币要手动设定汇率)。记外币账目时,会自动记下当天的汇率。</p></div>
+</section>
+
+<section id="t-plan" class="hide">
+  <div class="seg" id="p-seg"><button data-a="pv" data-v="go" class="on">计划中</button><button data-a="pv" data-v="done">已实现</button></div>
+  <div id="p-go">
+    <div class="card"><h2>新增计划</h2>
+      <p class="mut">例如「去日本旅行」「买电脑」,每个计划互相独立,对照总资产看买完还剩多少。</p>
+      <div class="row"><div><label>计划名称</label><input id="p-name"></div><div><label id="p-bl">预算</label><input type="number" id="p-bud" inputmode="decimal"></div></div>
+      <label>分类(用于图片)</label><select id="p-cat"></select>
+      <button class="pri" id="p-add">添加计划</button></div>
+    <div id="p-list"></div>
+  </div>
+  <div id="p-done" class="hide"></div>
+</section>
+
+<section id="t-chart" class="hide">
+  <div class="card">
+    <div class="row"><div><label>图表</label><select id="ch-type"><option value="pie">饼图(按类别)</option><option value="bar">柱状图(按类别)</option><option value="mpie">饼图(按对象)</option><option value="mbar">柱状图(按对象)</option><option value="flow">收支对比(按时间)</option><option value="net">资产走势</option></select></div>
+    <div><label>统计</label><select id="ch-met"><option value="exp">支出</option><option value="inc">收入</option></select></div></div>
+    <div class="row"><div><label>范围</label><select id="ch-rng"><option value="m">本月</option><option value="pm">上个月</option><option value="y">今年</option><option value="all">全部</option><option value="c">自订日期</option></select></div>
+    <div><label>账户</label><select id="ch-acc"></select></div></div>
+    <div class="row"><div><label>对象</label><select id="ch-mem"></select></div></div>
+    <div class="row hide" id="ch-c"><div><label>从</label><input type="date" id="ch-from"></div><div><label>到</label><input type="date" id="ch-to"></div></div>
+  </div>
+  <div class="card"><div class="pt" id="ch-title"></div><div class="cv"><canvas id="cv"></canvas></div><div id="ch-msg" class="mut"></div></div>
+  <div class="card"><div id="ch-sum"></div></div>
+</section>
+</main>
+<datalist id="dl-mem"></datalist><datalist id="dl-tag"></datalist>
+<nav><button data-t="book" class="on">记账</button><button data-t="acc">资产</button><button data-t="chart">图表</button><button data-t="plan">计划</button></nav>
+
+<div id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,"0");
+const nf=n=>Math.abs(n).toLocaleString("en-US",{maximumFractionDigits:2});
+const sym=c=>c==="MYR"?"RM ":c+" ";
+const fm=n=>(n<0?"-":"")+sym(S.set.base)+nf(n);
+const fc=(n,c)=>(n<0?"-":"")+sym(c)+nf(n);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const today=()=>{const t=new Date();return t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(t.getDate())};
+const ymd=d=>d.getUTCFullYear()+"-"+pad(d.getUTCMonth()+1)+"-"+pad(d.getUTCDate());
+const PD=s=>{const[y,m,d]=s.split("-").map(Number);return new Date(Date.UTC(y,m-1,d))};
+const EMO=["🍜","🍔","☕","🛒","🚗","🚌","⛽","🅿️","🏠","💡","📱","💻","🎮","🎬","🍿","✈️","🏨","🧳","🎁","👕","💊","🏥","📚","🎓","💰","🧾","🐶","👶","💪","🎵","🍺","🛠️","🧴","🛡️","🔑","🤝","🏸","💇","🎗️","🏛️","🧧","📈","🍱","💼","📦"];
+const GUESS=[["停车","🅿️"],["午餐|饮食|餐|吃|food","🍜"],["交通|trans|grab","🚌"],["学|书|education","📚"],["游戏","🎮"],["娱乐|电影|movie","🎬"],["交际|朋友","🤝"],["税|政府","🧾"],["电话|网络","📱"],["汽车|车|油","🚗"],["捐","🎗️"],["服饰|衣","👕"],["礼","🎁"],["居家|物业|房|租","🏠"],["球|运动","🏸"],["美容|美发","💇"],["电脑","💻"],["日常|购物|shop","🛒"],["医|药","💊"],["旅","✈️"],["工资|薪|收入|salary","💰"]];
+const guess=n=>(GUESS.find(g=>new RegExp(g[0],"i").test(n))||[0,"📦"])[1];
+const CUR=[["MYR", "马来西亚令吉"], ["SGD", "新加坡元"], ["USD", "美元"], ["JPY", "日元"], ["CNY", "人民币"], ["HKD", "港币"], ["TWD", "新台币"], ["KRW", "韩元"], ["THB", "泰铢"], ["IDR", "印尼盾"], ["VND", "越南盾"], ["PHP", "菲律宾披索"], ["INR", "印度卢比"], ["BND", "文莱元"], ["EUR", "欧元"], ["GBP", "英镑"], ["AUD", "澳元"], ["NZD", "新西兰元"], ["CAD", "加拿大元"], ["CHF", "瑞士法郎"], ["SEK", "瑞典克朗"], ["NOK", "挪威克朗"], ["DKK", "丹麦克朗"], ["PLN", "波兰兹罗提"], ["CZK", "捷克克朗"], ["HUF", "匈牙利福林"], ["RON", "罗马尼亚列伊"], ["BGN", "保加利亚列弗"], ["ISK", "冰岛克朗"], ["TRY", "土耳其里拉"], ["RUB", "俄罗斯卢布"], ["UAH", "乌克兰格里夫纳"], ["ILS", "以色列谢克尔"], ["AED", "阿联酋迪拉姆"], ["SAR", "沙特里亚尔"], ["QAR", "卡塔尔里亚尔"], ["KWD", "科威特第纳尔"], ["EGP", "埃及镑"], ["ZAR", "南非兰特"], ["NGN", "尼日利亚奈拉"], ["KES", "肯尼亚先令"], ["MAD", "摩洛哥迪拉姆"], ["BRL", "巴西雷亚尔"], ["MXN", "墨西哥比索"], ["ARS", "阿根廷比索"], ["CLP", "智利比索"], ["COP", "哥伦比亚比索"], ["PEN", "秘鲁索尔"], ["MMK", "缅甸缅元"], ["KHR", "柬埔寨瑞尔"], ["LAK", "老挝基普"], ["MOP", "澳门元"], ["BDT", "孟加拉塔卡"], ["PKR", "巴基斯坦卢比"], ["LKR", "斯里兰卡卢比"], ["NPR", "尼泊尔卢比"], ["KZT", "哈萨克斯坦坚戈"]];
+const DEFRATE={"MYR": 1, "SGD": 3.3, "USD": 4.4, "JPY": 0.03, "CNY": 0.62, "HKD": 0.56, "TWD": 0.14, "KRW": 0.0033, "THB": 0.13, "IDR": 0.00027, "VND": 0.00017, "PHP": 0.076, "INR": 0.052, "BND": 3.3, "EUR": 4.9, "GBP": 5.7, "AUD": 2.9, "NZD": 2.6, "CAD": 3.2, "CHF": 5.2, "SEK": 0.42, "NOK": 0.41, "DKK": 0.66, "PLN": 1.15, "CZK": 0.19, "HUF": 0.012, "RON": 0.97, "BGN": 2.5, "ISK": 0.032, "TRY": 0.1, "RUB": 0.05, "UAH": 0.1, "ILS": 1.2, "AED": 1.2, "SAR": 1.17, "QAR": 1.2, "KWD": 14.3, "EGP": 0.09, "ZAR": 0.25, "NGN": 0.003, "KES": 0.034, "MAD": 0.45, "BRL": 0.8, "MXN": 0.23, "ARS": 0.003, "CLP": 0.0047, "COP": 0.0011, "PEN": 1.2, "MMK": 0.0021, "KHR": 0.0011, "LAK": 0.0002, "MOP": 0.55, "BDT": 0.036, "PKR": 0.016, "LKR": 0.015, "NPR": 0.033, "KZT": 0.009};
+const TYPEIC={"现金":"💵","银行":"🏦","借记卡":"💳","信用卡":"💳","电子钱包":"📲","投资":"📈","其他":"💼"};
+const PAL=["#14342e","#c98a00","#2f7f6f","#b3392f","#6b8e9c","#8a6bb0","#d0a04c","#4c8a4c","#a35c7a","#5b6f3a","#c0664a","#3d5a80","#999"];
+
+const DEFEXP=[["饮食","🍜"],["交通","🚌"],["停车","🅿️"],["学习进修","📚"],["交际费","🤝"],["游戏","🎮"],["休闲娱乐","🎬"],["电影","🍿"],["日常用品","🧴"],["购物","🛒"],["服饰","👕"],["电话网络","📱"],["汽车","🚗"],["汽油","⛽"],["税金","🧾"],["政府相关","🏛️"],["捐款","🎗️"],["礼物","🎁"],["居家物业","🏠"],["房租","🔑"],["水电费","💡"],["打球","🏸"],["运动","💪"],["美容美发","💇"],["教育","🎓"],["电脑","💻"],["医疗","💊"],["保险","🛡️"],["旅行","✈️"],["宠物","🐶"],["孩子","👶"],["咖啡","☕"],["维修","🛠️"],["其他","📦"]];
+const DEFINC=[["工资","💰"],["奖金","🧧"],["兼职","💼"],["投资收益","📈"],["利息","🏦"],["红包","🧧"],["午餐费","🍱"],["退款","↩️"],["其他收入","📦"]];
+const defCats=()=>DEFEXP.map(([name,emoji])=>({name,emoji,inc:false})).concat(DEFINC.map(([name,emoji])=>({name,emoji,inc:true})));
+function fresh(){return{rates:{},man:{},set:{name:"",base:"MYR",acc:"",mem:"自己"},accs:[["现金","现金"],["银行","银行"],["借记卡","借记卡"],["信用卡","信用卡"],["TNG","电子钱包"]].map(([n,t])=>({id:uid()+n.length,name:n,type:t,cur:"MYR",open:0})),rows:[],plans:[],cats:defCats(),tngAdded:1,catOrd:1}}
+function norm(){S.rates=S.rates||{};S.man=S.man||{};S.plans=S.plans||[];S.cust=S.cust||[];S.set=Object.assign({name:"",base:"MYR",acc:"",mem:"自己"},S.set);
+  if(!S.catOrd){const c={};(S.rows||[]).forEach(r=>{if(r.c)c[r.c]=(c[r.c]||0)+1});
+    [false,true].forEach(k=>{const idx=S.cats.map((x,i)=>x.inc===k?i:-1).filter(i=>i>=0),s=idx.map(i=>S.cats[i]).sort((a,b)=>(c[b.name]||0)-(c[a.name]||0));idx.forEach((q,i)=>{S.cats[q]=s[i]})});S.catOrd=1}
+  if(!S.tngAdded){if(!S.accs.some(a=>a.name==="TNG"))S.accs.push({id:uid(),name:"TNG",type:"电子钱包",cur:S.set.base,open:0});S.tngAdded=1}}
+let S=null;try{["jz2","jz3"].forEach(k=>localStorage.removeItem(k));S=JSON.parse(localStorage.getItem("jz4"))}catch(e){}
+S=S||fresh();
+norm();
+const save=()=>{try{localStorage.setItem("jz4",JSON.stringify(S))}catch(e){alert("储存失败,可能空间已满")}};
+const accById=i=>S.accs.find(a=>a.id===i);
+const cat=n=>S.cats.find(c=>c.name===n);
+const ico=n=>{const c=cat(n);return c&&c.img?`<img class="ic" src="${c.img}">`:`<span class="ic">${c?c.emoji:"📦"}</span>`};
+const defR=c=>DEFRATE[c]&&DEFRATE[S.set.base]?DEFRATE[c]/DEFRATE[S.set.base]:0;
+const rate=c=>c===S.set.base?1:(S.rates[c]||defR(c)||1);
+const rv=r=>r.a*(r.cur===S.set.base?1:(r.rt||rate(r.cur)));
+const toB=(a,c)=>a*rate(c);
+function bals(){const m={};S.accs.forEach(a=>m[a.id]=a.open);
+  for(const r of S.rows){if(m[r.acc]===undefined)continue;if(r.t==="inc")m[r.acc]+=r.a;else if(r.t==="exp")m[r.acc]-=r.a;else{m[r.acc]-=r.a;const to=accById(r.to);if(to)m[r.to]+=rv(r)/rate(to.cur)}}return m}
+
+let T="book",SO=false,EO=false,CM=false,pv="go",sel=today(),vm=sel.slice(0,7),kind="exp",pick=null,emo="📦",img=null,lastToday=today();
+function tab(t){T=t;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.t===t));
+  ["book","acc","chart","plan"].forEach(x=>$("t-"+x).classList.toggle("hide",x!==t));render()}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
+let LANG="zh";try{LANG=localStorage.getItem("jz_lang")||"zh"}catch(e){}
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const isMe=m=>m==="自己"||m==="Me";
+const EX={"记账本": "My Ledger", "‹ 返回": "‹ Back", "设定": "Settings", "记账": "Ledger", "资产": "Assets", "图表": "Charts", "计划": "Plans", "日": "Sun", "一": "Mon", "二": "Tue", "三": "Wed", "四": "Thu", "五": "Fri", "六": "Sat", "今天": "Today", "到": "To", "从": "From", "换成": "To", "支出": "Expense", "收入": "Income", "转账": "Transfer", "金额": "Amount", "账户": "Account", "转出账户": "From account", "转入账户": "To account", "类别": "Category", "新增 / 管理分类": "Add / manage categories", "添加分类": "Add category", "补充推荐分类": "Add suggested categories", "成员": "Member", "标签": "Tag", "备注": "Note", "添加": "Add", "删除": "Delete", "删": "Del", "加": "Add", "自己": "Me", "我的设定": "My settings", "你的名字": "Your name", "通用货币": "Base currency", "默认账户": "Default account", "默认成员": "Default member", "语言 / Language": "Language", "数据:导入 / 导出": "Data: import / export", "导出 Excel": "Export Excel", "完整备份": "Full backup", "清空账目": "Clear entries", "重置为全新(删除全部数据)": "Reset to brand new (delete all data)", "不指定": "None", "本月收入": "Income this month", "本月支出": "Spending this month", "本月结余": "Net this month", "今天支出": "Today's spending", "总资产": "Total assets", "目前总资产": "Total assets now", "新增账户": "Add account", "名称": "Name", "类型": "Type", "货币": "Currency", "目前余额(信用卡欠款填负数)": "Current balance (negative for card debt)", "添加账户": "Add account", "例如:Maybank": "e.g. Maybank", "修正资产": "Adjust balance", "删除账户": "Delete account", "目前欠款": "Amount owed", "汇率换算": "Currency converter", "联网更新汇率": "Update rates online", "保存": "Save", "现金": "Cash", "银行": "Bank", "借记卡": "Debit card", "信用卡": "Credit card", "电子钱包": "E-wallet", "投资": "Investment", "其他": "Other", "＋ 自定义货币…": "+ Custom currency…", "饼图(按类别)": "Pie chart (by category)", "柱状图(按类别)": "Bar chart (by category)", "收支对比(按时间)": "Income vs expense (over time)", "资产走势": "Asset trend", "统计": "Show", "范围": "Range", "本月": "This month", "上个月": "Last month", "今年": "This year", "全部": "All time", "自订日期": "Custom dates", "全部账户": "All accounts", "其他(合并)": "Other (merged)", "支出占比": "Expense share", "收入占比": "Income share", "收支对比": "Income vs expense", "总支出": "Total expense", "总收入": "Total income", "结余": "Net", "支出排行": "Expense ranking", "收入排行": "Income ranking", "计划中": "In progress", "已实现": "Achieved", "新增计划": "Add plan", "计划名称": "Plan name", "预算": "Budget", "分类(用于图片)": "Category (for the icon)", "添加计划": "Add plan", "减去预算后剩": "Left after budget", "项目,如:机票": "Item, e.g. flight", "项目,如:住宿": "Item, e.g. lodging", "已购买时从哪个账户扣": "Deduct from which account when bought", "已购买,记入账目": "Bought: add to ledger", "删除计划": "Delete plan", "计划达成了,去记录实际花费": "Plan achieved: record actual spending", "总览": "Overview", "已实现的计划": "Achieved plans", "预算合计": "Total budget", "实际花费合计": "Total actual spending", "差额": "Difference", "实际花费": "Actual spending", "项目对比(计划 vs 实际)": "Items: plan vs actual", "实际花费明细": "Actual spending details", "从账目导入(标签 = 计划名称的支出)": "Import from ledger (spending tagged with the plan name)", "退回计划中": "Move back to in progress", "计划外": "Unplanned", "这一天还没有记录.": "No entries for this day.", "新分类名称,例如:旅行,电脑": "New category name, e.g. Travel, Laptop", "通用货币是所有统计和图表使用的货币.外币账目会按记账当天的汇率折算:联网时自动取得,没有网络时先用估算汇率,之后联网会自动更正.": "The base currency is used for all totals and charts. Foreign-currency entries are converted at the rate of the day they were recorded: fetched automatically when online; estimated rates are used offline and corrected automatically once you are online again.", "支持你的记账 App 导出的表格(日期,类别,金额,账户,货币,成员,标签,备注,收支),新出现的分类和账户会自动建立;重复导入同一份不会重复记.也可选“完整备份”文件(.json)还原.": "Supports spreadsheets exported from your bookkeeping app (Date, Category, Amount, Account, Currency, Member, Tag, Note, Income/Expense). New categories and accounts are created automatically; importing the same file twice won't duplicate entries. You can also pick a “Full backup” file (.json) to restore.", "货币下拉选单里有 50 多种货币,没有的可以选最底下的“自定义货币”自己输入代码(自定义货币要手动设定汇率).记外币账目时,会自动记下当天的汇率.": "The currency list has 50+ currencies. For others, pick “Custom currency” at the bottom and type a code (custom currencies need a manual rate). Foreign-currency entries automatically record that day's exchange rate.", "例如“去日本旅行”“买电脑”,每个计划互相独立,对照总资产看买完还剩多少.": "For example “Trip to Japan” or “Buy a laptop”. Each plan is independent. Compare it with your total assets to see what is left after buying.", "还没有已实现的计划.在“计划中”点“计划达成了”,就可以在这里记录实际花费,并和原本的预算对比.": "No achieved plans yet. Tap “Plan achieved” under In progress to record the actual spending here and compare it with your budget.", "这不是有效的备份文件": "This is not a valid backup file", "请填写金额": "Please enter an amount", "请先选一个类别": "Please pick a category first", "请先在“资产”页新增账户": "Please add an account on the Assets page first", "转出和转入账户不能相同": "From and to accounts must be different", "请填写分类名称": "Please enter a category name", "这个分类已经存在": "This category already exists", "推荐分类你都已经有了.": "You already have all the suggested categories.", "请填写账户名称": "Please enter an account name", "已经有同名账户": "An account with this name already exists", "请填写名称和预算": "Please enter a name and a budget", "请填好两个不同的货币和汇率": "Please choose two different currencies and enter a rate", "这个账户已有账目,无法删除.": "This account has entries and cannot be deleted.", "删除这个计划?": "Delete this plan?", "确定清空所有账目?(账户,分类和计划会保留)": "Clear all entries? (Accounts, categories and plans are kept.)", "这会删除所有账目,账户,分类,计划和设定,且无法恢复.建议先点“完整备份”.确定要重置吗?": "This deletes all entries, accounts, categories, plans and settings and cannot be undone. Tap “Full backup” first if you want a copy. Reset now?", "用备份覆盖现有的全部数据?": "Replace all current data with the backup?", "已还原备份.": "Backup restored.", "找不到“日期 / 类别 / 金额”列,请检查第一行的标题.": "Couldn't find the Date / Category / Amount columns. Please check the header row.", "储存失败,可能空间已满": "Save failed. Storage may be full.", "这个范围内没有数据.": "No data in this range.", "开始日期不能晚于结束日期.": "The start date can't be later than the end date.", "提示:到“资产”页用“修正资产”设好各账户的实际余额,这条走势才准确.": "Tip: set each account's real balance with “Adjust balance” on the Assets page so this trend is accurate.", "输入货币代码(2-6 个英文字母),例如 BTC:": "Enter a currency code (2-6 letters), e.g. BTC:", "还没有联网更新过,目前用的是估算汇率": "Not updated online yet. Using estimated rates.", "正在联网更新…": "Updating online…", "没有网络,或这些货币查不到汇率,继续使用估算汇率": "No network, or no rates available for these currencies. Keeping the estimated rates.", "推荐分类你都已经有了": "You already have all the suggested categories", "马来西亚令吉": "Malaysian Ringgit", "新加坡元": "Singapore Dollar", "美元": "US Dollar", "日元": "Japanese Yen", "人民币": "Chinese Yuan", "港币": "Hong Kong Dollar", "新台币": "New Taiwan Dollar", "韩元": "South Korean Won", "泰铢": "Thai Baht", "印尼盾": "Indonesian Rupiah", "越南盾": "Vietnamese Dong", "菲律宾披索": "Philippine Peso", "印度卢比": "Indian Rupee", "文莱元": "Brunei Dollar", "欧元": "Euro", "英镑": "British Pound", "澳元": "Australian Dollar", "新西兰元": "New Zealand Dollar", "加拿大元": "Canadian Dollar", "瑞士法郎": "Swiss Franc", "瑞典克朗": "Swedish Krona", "挪威克朗": "Norwegian Krone", "丹麦克朗": "Danish Krone", "波兰兹罗提": "Polish Zloty", "捷克克朗": "Czech Koruna", "匈牙利福林": "Hungarian Forint", "罗马尼亚列伊": "Romanian Leu", "保加利亚列弗": "Bulgarian Lev", "冰岛克朗": "Icelandic Krona", "土耳其里拉": "Turkish Lira", "俄罗斯卢布": "Russian Ruble", "乌克兰格里夫纳": "Ukrainian Hryvnia", "以色列谢克尔": "Israeli Shekel", "阿联酋迪拉姆": "UAE Dirham", "沙特里亚尔": "Saudi Riyal", "卡塔尔里亚尔": "Qatari Riyal", "科威特第纳尔": "Kuwaiti Dinar", "埃及镑": "Egyptian Pound", "南非兰特": "South African Rand", "尼日利亚奈拉": "Nigerian Naira", "肯尼亚先令": "Kenyan Shilling", "摩洛哥迪拉姆": "Moroccan Dirham", "巴西雷亚尔": "Brazilian Real", "墨西哥比索": "Mexican Peso", "阿根廷比索": "Argentine Peso", "智利比索": "Chilean Peso", "哥伦比亚比索": "Colombian Peso", "秘鲁索尔": "Peruvian Sol", "缅甸缅元": "Myanmar Kyat", "柬埔寨瑞尔": "Cambodian Riel", "老挝基普": "Lao Kip", "澳门元": "Macanese Pataca", "孟加拉塔卡": "Bangladeshi Taka", "巴基斯坦卢比": "Pakistani Rupee", "斯里兰卡卢比": "Sri Lankan Rupee", "尼泊尔卢比": "Nepalese Rupee", "哈萨克斯坦坚戈": "Kazakhstani Tenge", "饮食": "Food", "交通": "Transport", "停车": "Parking", "学习进修": "Study", "交际费": "Social", "游戏": "Games", "休闲娱乐": "Leisure", "电影": "Movies", "日常用品": "Daily needs", "购物": "Shopping", "服饰": "Clothing", "电话网络": "Phone & internet", "汽车": "Car", "汽油": "Fuel", "税金": "Taxes", "政府相关": "Government", "捐款": "Donations", "礼物": "Gifts", "居家物业": "Home & property", "房租": "Rent", "水电费": "Utilities", "打球": "Ball games", "运动": "Sports", "美容美发": "Beauty & hair", "教育": "Education", "电脑": "Computer", "医疗": "Medical", "保险": "Insurance", "旅行": "Travel", "宠物": "Pets", "孩子": "Kids", "咖啡": "Coffee", "维修": "Repairs", "工资": "Salary", "奖金": "Bonus", "兼职": "Side job", "投资收益": "Investment returns", "利息": "Interest", "红包": "Red packet", "午餐费": "Lunch allowance", "退款": "Refund", "其他收入": "Other income", "食物": "Food", "住房": "Housing", "住宿": "Lodging", "机票": "Flights"};
+const PH=[["?所有外币的汇率会重新联网取得,没网络时会暂用估算值.", "? All foreign rates will be fetched online again (estimates are used while offline)."], [".请到“资产”页用“修正资产”设好各账户的实际余额.", ". Go to the Assets page and use “Adjust balance” to set each account's real balance."], ["”的支出.记账时在“标签”栏填上计划名称就可以.", "”. Put the plan name in the Tag field when you record spending."], [" 的汇率,请联网更新,或在下面手动设定.", ". Update online or set one manually below."], ["目前用“已购买”记下的金额", "Using the amount saved when marked bought:"], ["”目前实际资产是多少 (", "” — what is its real balance now ("], [")?信用卡欠款请填负数.", ")? Enter a negative number for card debt."], ["”?已记的账目会保留.", "”? Existing entries are kept."], ["已联网更新(成功 ", "Updated online ("], ["进行中的计划共 ", "Plans in progress total "], [",全部完成后剩 ", ", left after all are done: "], [" 作为实际花费.", " as the actual spending."], ["汇率已联网更新(", "Rates updated online ("], ["手动设定汇率:1", "Set rate manually: 1"], ["实际花了多少 (", "How much did it actually cost ("], ["把通用货币改成 ", "Change the base currency to "], ["没有找到标签为“", "No spending found with the tag “"], ["已列项目合计 ", "Items listed total "], [" 个推荐分类.", " suggested categories."], ["图表无法显示:", "Chart can't be shown: "], ["负债(欠款)", "Liabilities (owed)"], ["总资产(折合", "Total assets (≈"], ["(估算汇率)", "(est. rate)"], [",超出预算 ", ", over budget by "], [",预算还有 ", ", budget left "], ["还没有记录.", "Nothing recorded yet. "], ["总资产 (", "Total assets ("], ["(自定义)", " (custom)"], [" 项没取到", " failed"], [" 笔已跳过", " duplicates skipped"], ["删除分类“", "Delete category “"], ["删除账户“", "Delete account “"], ["备份失败:", "Backup failed: "], ["导出失败:", "Export failed: "], ["读取失败:", "Read failed: "], ["已联网更新", "Updated online"], ["当天支出", "Spending that day"], ["预算 (", "Budget ("], ["支出 (", "Expense ("], ["收入 (", "Income ("], ["全部期间", "All time"], ["转账 →", "Transfer →"], ["(今天)", "(Today)"], ["(还差)", "(short)"], [" 未分配", " unallocated"], ["还没有 ", "No exchange rate for "], ["已导入 ", "Imported "], [",新增 ", ", new "], [" 个分类", " categories"], [" 个账户", " accounts"], [",重复 ", ", "], [",跳过 ", ", skipped "], ["已补充 ", "Added "], ["收入 ", "Income "], ["资产 ", "Assets "], ["预算 ", "Budget "], [" 至 ", " to "], ["超支 ", "Over by "], ["节省 ", "Saved "], ["你好", "Hello"], [" 项", " ok"], [" 笔", " entries"], [" 个", ""], [" 行", " rows"]];
+Object.assign(EX,{"记入账目": "Add to ledger", "撤销记入": "Undo adding", "记入的账户": "Account to record in", "记入日期": "Record date", "记入方式": "How to record", "分项记入(每个项目一笔)": "Itemized (one entry per item)", "合计记入(一笔)": "Total (a single entry)", "不记入也可以,这里只用来和预算对比;记入后会从账户里扣款,并出现在日历和图表中.": "Adding is optional. Without it, this is only used to compare with the budget. If you add it, the money is deducted from the account and shows up in the calendar and charts.", "没有可以记入的项目.请先在上面记录实际花费(从账目导入的项目已经在账目里了,不会重复记入).": "Nothing to add. Record the actual spending above first. (Items imported from the ledger are already there and won't be added twice.)"});PH.push(...[["已记入账目(", "Added to ledger ("], [",共 ", ", total "], [".之后再改实际花费不会同步,要修改请先撤销再重新记入.", ". Later changes to the actual spending won't sync. Undo first, then add again."]]);PH.sort((a,b)=>b[0].length-a[0].length);
+Object.assign(EX,{"农历": "Lunar", "不显示": "Hide", "显示农历": "Show lunar calendar"});
+Object.assign(EX,{"长按图标拖动排序,点图标修改名称,点红色“−”删除.": "Long-press an icon to drag and reorder, tap an icon to rename it, tap the red “−” to delete.", "修改分类名称:": "Rename category:", "按住账户右上角的“⠿”拖动,可以调整顺序.": "Press and hold the “⠿” at the top-right of an account and drag to reorder.", "快速添加常用账户": "Quick add common accounts", "再按一次退出": "Press back again to exit", "金额格式不对": "Invalid amount"});
+Object.assign(EX,{"完成": "Done", "已保存 ✓": "Saved ✓", "花在谁身上": "Spent on whom", "谁给我的": "Who gave it to me", "对象": "Person", "留空 = 自己": "Leave blank = me", "全部对象": "All people", "饼图(按对象)": "Pie chart (by person)", "柱状图(按对象)": "Bar chart (by person)", "各对象花费": "Spending by person", "各对象收入": "Income by person"});
+Object.assign(EX,{"新增记录": "New entry", "日期": "Date", "外观 / 背景": "Appearance / background", "颜色": "Colors", "风景": "Scenes", "自己的图片": "My own picture", "移除我的图片": "Remove my picture", "默认绿": "Default green", "海蓝": "Ocean blue", "樱花粉": "Sakura pink", "薰衣草": "Lavender", "奶茶": "Milk tea", "薄荷": "Mint", "暖阳": "Sunshine", "石墨": "Graphite", "晨曦": "Dawn", "晚霞": "Sunset glow", "海雾": "Sea mist", "紫雾": "Violet haze", "晨光山丘": "Morning hills", "海边日落": "Seaside sunset", "雪山": "Snow peaks", "森林": "Forest", "星夜": "Starry night", "沙漠": "Desert", "樱花": "Cherry blossom", "极光": "Aurora", "图片太大,储存失败,请换一张小一点的图片。": "The picture is too large to save. Please choose a smaller one."});
+const ZH=/[\u4e00-\u9fff]/,NM={"，":",","。":".","：":":","？":"?","（":"(","）":")","；":";","、":",","「":"“","」":"”"};
+const nrm=s=>s.replace(/[，。：？（）；、「」]/g,c=>NM[c]);
+function tx(s){
+  if(LANG!=="en"||typeof s!=="string"||!ZH.test(s))return s;
+  const lead=s.match(/^\s*/)[0],trail=s.match(/\s*$/)[0],core=s.trim(),k=nrm(core);
+  if(EX[k]!==undefined)return lead+EX[k]+trail;
+  let m=core.match(/^([^\u4e00-\u9fffA-Za-z0-9]+)\s+(.+)$/);if(m&&EX[nrm(m[2])]!==undefined)return lead+m[1]+" "+EX[nrm(m[2])]+trail;
+  m=core.match(/^([A-Z]{2,6}) (.+)$/);if(m&&EX[nrm(m[2])]!==undefined)return lead+m[1]+" "+EX[nrm(m[2])]+trail;
+  m=core.match(/^(.+?) \(([A-Z]{2,6})\)$/);if(m&&EX[nrm(m[1])]!==undefined)return lead+EX[nrm(m[1])]+" ("+m[2]+")"+trail;
+  m=core.match(/^转账 → (.+)$/);if(m)return lead+"Transfer → "+tx(m[1])+trail;
+  if(core.includes(" · "))return lead+core.split(" · ").map(tx).join(" · ")+trail;
+  let o=nrm(s);for(const[a,b]of PH)o=o.split(a).join(b);
+  return o.replace(/,(?=[A-Za-z“(])/g,", ").replace(/\.(?=[A-Za-z“])/g,". ")}
+const ORIG=new WeakMap();
+function trAll(){
+  const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;
+  while(n=w.nextNode()){const p=n.parentNode;if(p&&(p.tagName==="SCRIPT"||p.tagName==="STYLE"))continue;
+    let r=ORIG.get(n);if(!r||n.nodeValue!==r.t){r={o:n.nodeValue,t:n.nodeValue};ORIG.set(n,r)}
+    const want=LANG==="en"?tx(r.o):r.o;if(n.nodeValue!==want)n.nodeValue=want;r.t=want}
+  document.querySelectorAll("[placeholder]").forEach(e=>{if(e.dataset.zh===undefined)e.dataset.zh=e.getAttribute("placeholder");e.setAttribute("placeholder",LANG==="en"?tx(e.dataset.zh):e.dataset.zh)});
+  document.title=LANG==="en"?"My Ledger":"记账本";document.documentElement.lang=LANG==="en"?"en":"zh"}
+let trBusy=false;new MutationObserver(()=>{if(trBusy||LANG!=="en")return;trBusy=true;try{trAll()}finally{trBusy=false}}).observe(document.body,{childList:true,subtree:true,characterData:true});
+{const A=window.alert.bind(window),C=window.confirm.bind(window),P=window.prompt.bind(window);window.alert=m=>A(tx(m));window.confirm=m=>C(tx(m));window.prompt=(m,d)=>P(tx(m),d)}
+function setLang(l){LANG=l;try{localStorage.setItem("jz_lang",l)}catch(e){}
+  if(l==="en"&&S.set.mem==="自己")S.set.mem="Me";else if(l==="zh"&&S.set.mem==="Me")S.set.mem="自己";
+  $("lg").textContent=l==="en"?"中文":"EN";$("s-lang").value=l;save();render()}
+$("lg").onclick=()=>setLang(LANG==="en"?"zh":"en");$("s-lang").onchange=()=>setLang($("s-lang").value);
+$("lg").textContent=LANG==="en"?"中文":"EN";$("s-lang").value=LANG;
+
+function render(){({book:rBook,acc:rAcc,chart:rChart,plan:rPlan})[T]();if(SO)rMain();$("settings").classList.toggle("hide",!SO);$("entry").classList.toggle("hide",!EO);trAll();hsync()}
+function curFill(id,def){const s=$(id),v=s.value||def,known=new Set(CUR.map(c=>c[0]));
+  const extra=[...new Set(S.accs.map(a=>a.cur).concat(S.rows.map(r=>r.cur),S.cust,S.set.base))].filter(c=>c&&!known.has(c));
+  s.innerHTML=CUR.map(([c,n])=>`<option value="${c}">${c} ${n}</option>`).join("")+extra.map(c=>`<option value="${esc(c)}">${esc(c)}(自定义)</option>`).join("")+'<option value="__new">＋ 自定义货币…</option>';
+  s.value=[...s.options].some(o=>o.value===v)?v:def}
+document.addEventListener("focusin",e=>{if(e.target.classList&&e.target.classList.contains("cur"))e.target.dataset.prev=e.target.value});
+document.addEventListener("change",e=>{const s=e.target;if(!(s.classList&&s.classList.contains("cur"))||s.value!=="__new")return;
+  const c=(prompt("输入货币代码(2-6 个英文字母),例如 BTC:")||"").trim().toUpperCase();
+  if(/^[A-Z]{2,6}$/.test(c)){if(!S.cust.includes(c)&&!CUR.some(x=>x[0]===c))S.cust.push(c);save();["s-base","n-cur","x-from","x-to"].forEach(i=>curFill(i,c));s.value=c}else s.value=s.dataset.prev||S.set.base},true);
+function fill(id,html){const s=$(id),v=s.value;s.innerHTML=html;if([...s.options].some(o=>o.value===v))s.value=v}
+const accOpts=()=>S.accs.map(a=>`<option value="${a.id}">${esc(a.name)} (${a.cur})</option>`).join("");
+
+// ===== 记账页
+function rBook(){
+  const B=S.set.base,[y,m]=vm.split("-").map(Number);$("ym").textContent=LANG==="en"?`${MON[m-1]} ${y}`:`${y}年${m}月`;
+  const dm={};S.rows.forEach(r=>{if(r.d.slice(0,7)===vm&&r.t!=="tr"){const o=dm[r.d]??={e:0,i:0};o[r.t==="inc"?"i":"e"]+=rv(r)}});
+  const first=new Date(y,m-1,1).getDay(),n=new Date(y,m,0).getDate(),td=today();let h="";
+  for(let i=0;i<first;i++)h+='<div class="cd o"></div>';
+  for(let d=1;d<=n;d++){const k=vm+"-"+pad(d),o=dm[k];h+=`<button class="cd ${k===sel?"sel":""} ${k===td?"today":""}" data-a="day" data-d="${k}"><b>${d}</b>${LUNAR?(lc=>lc?`<small class="lu${lc.f?" fe":""}">${lc.t}</small>`:"")(lcell(k)):""}${k===td?'<span class="tg">今天</span>':""}${o&&o.e?`<small class="e">${Math.round(o.e)}</small>`:""}${o&&o.i?`<small class="i">+${Math.round(o.i)}</small>`:""}</button>`}
+  $("cal").innerHTML=h;$("dl").textContent=LUNAR?lline(sel):"";$("f-date").value=sel;$("l-mem").textContent=kind==="inc"?"谁给我的":kind==="exp"?"花在谁身上":"对象";
+  {const mc={};S.rows.forEach(r=>{if(!isMe(r.mem))mc[r.mem]=(mc[r.mem]||0)+1});const nm=[S.set.mem,...Object.keys(mc).sort((a,b)=>mc[b]-mc[a]).slice(0,8)];
+   $("mem-chips").innerHTML=nm.map(n=>`<button class="sec sm" data-a="mem" data-n="${esc(n)}">${esc(n)}</button>`).join("")}
+  const dr=S.rows.filter(r=>r.d===sel),wd="日一二三四五六"[PD(sel).getUTCDay()];
+  $("dh").textContent=LANG==="en"?`${WD[PD(sel).getUTCDay()]}, ${MON[+sel.slice(5,7)-1]} ${+sel.slice(8)}${sel===td?" (Today)":""}`:`${+sel.slice(5,7)}月${+sel.slice(8)}日 周${wd}${sel===td?"(今天)":""}`;
+  $("ds").textContent=`当天支出 ${fm(dr.filter(r=>r.t==="exp").reduce((s,r)=>s+rv(r),0))} · 收入 ${fm(dr.filter(r=>r.t==="inc").reduce((s,r)=>s+rv(r),0))}`;
+  document.querySelectorAll("#seg button").forEach(b=>b.classList.toggle("on",b.dataset.k===kind));
+  $("f-cat").classList.toggle("hide",kind==="tr");$("f-to").classList.toggle("hide",kind!=="tr");$("l-acc").textContent=kind==="tr"?"转出账户":"账户";
+  const had=$("f-acc").value;fill("f-acc",accOpts());fill("f-to2",accOpts());if(!had&&S.set.acc&&accById(S.set.acc))$("f-acc").value=S.set.acc;
+  const cnt={};S.rows.forEach(r=>{if(r.c)cnt[r.c]=(cnt[r.c]||0)+1});
+  const cs=S.cats.filter(c=>c.inc===(kind==="inc"));
+  $("tiles").classList.toggle("cm",CM);$("catmgr").classList.toggle("hide",!CM);$("mg-btn").textContent=CM?"完成":"新增 / 管理分类";
+  $("tiles").innerHTML=cs.map(c=>`<button class="tile ${pick===c.name?"on":""}" data-a="pick" data-n="${esc(c.name)}">${CM?`<span class="rm" data-a="delcat" data-n="${esc(c.name)}">−</span>`:""}${ico(c.name)}${esc(c.name)}</button>`).join("");
+  $("c-emo").innerHTML=EMO.map(e=>`<button class="tile ${emo===e&&!img?"on":""}" data-a="emo" data-e="${e}"><span class="ic">${e}</span></button>`).join("");
+  $("c-prev").innerHTML=img?`<img class="ic" src="${img}">`:`<span class="ic">${emo}</span>`;
+  $("dl-mem").innerHTML=[...new Set(S.rows.map(r=>r.mem).concat(S.set.mem))].map(x=>`<option value="${esc(x)}">`).join("");
+  $("dl-tag").innerHTML=[...new Set(S.rows.map(r=>r.tag).filter(Boolean))].slice(0,50).map(x=>`<option value="${esc(x)}">`).join("");
+  $("dlist").innerHTML=dr.length?dr.map(r=>{const an=(accById(r.acc)||{}).name||"?",sub=[an,(r.mem!==S.set.mem&&!(isMe(r.mem)&&isMe(S.set.mem)))?r.mem:"",r.tag,r.note].filter(Boolean).map(esc).join(" · ");
+    const title=r.t==="tr"?`转账 → ${esc((accById(r.to)||{}).name||"?")}`:esc(r.c);
+    const fx=r.cur!==B&&r.t!=="tr"?`<br><span class="mut">≈ ${fm(rv(r))}${r.rf?"":"(估算汇率)"}</span>`:"";
+    return `<div class="k"><span class="lr">${r.t==="tr"?'<span class="ic">🔁</span>':ico(r.c)}<span>${title}<br><span class="mut">${sub}</span></span></span><span style="text-align:right" class="${r.t==="inc"?"pos":""}">${r.t==="inc"?"+":r.t==="exp"?"-":""}${fc(r.a,r.cur)}${fx}<br><button class="sec sm" data-a="delrow" data-id="${r.id}">删</button></span></div>`}).join(""):'<div class="mut">这一天还没有记录。</div>';
+}
+$("pm").onclick=()=>{const[y,m]=vm.split("-").map(Number);const d=new Date(y,m-2,1);vm=d.getFullYear()+"-"+pad(d.getMonth()+1);render()};
+$("nm").onclick=()=>{const[y,m]=vm.split("-").map(Number);const d=new Date(y,m,1);vm=d.getFullYear()+"-"+pad(d.getMonth()+1);render()};
+$("td").onclick=()=>{sel=today();vm=sel.slice(0,7);render()};
+$("seg").onclick=e=>{const k=e.target.dataset.k;if(k){kind=k;pick=null;render()}};
+$("mg-btn").onclick=e=>{e.preventDefault();CM=!CM;render()};
+$("f-add").onclick=()=>{const a=calc($("f-amt").value);if(isNaN(a)||!(a>0))return alert($("f-amt").value.trim()?"金额格式不对":"请填写金额");
+  const ac=accById($("f-acc").value);if(!ac)return alert("请先在「资产」页新增账户");
+  const r={id:uid(),d:sel,t:kind,a,acc:ac.id,cur:ac.cur,rt:ac.cur===S.set.base?1:rate(ac.cur),mem:$("f-mem").value.trim()||S.set.mem,tag:$("f-tag").value.trim(),note:$("f-note").value.trim()};
+  if(kind==="tr"){const to=$("f-to2").value;if(to===ac.id)return alert("转出和转入账户不能相同");r.to=to}else{if(!pick)return alert("请先选一个类别");r.c=pick}
+  S.rows.push(r);$("f-amt").value="";$("f-res").textContent="";$("f-note").value="";$("f-mem").value="";EO=false;CM=false;toast("已保存 ✓");$("entry").classList.add("hide");save();render();if(r.cur!==S.set.base)syncRates()};
+function shrink(f,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement("canvas");c.width=c.height=96;
+  const s=Math.min(im.width,im.height);c.getContext("2d").drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,96,96);cb(c.toDataURL("image/jpeg",.8))};im.src=r.result};r.readAsDataURL(f)}
+$("c-img").onchange=e=>{const f=e.target.files[0];if(f)shrink(f,d=>{img=d;render()});e.target.value=""};
+$("c-add").onclick=()=>{const n=$("c-name").value.trim();if(!n)return alert("请填写分类名称");if(cat(n))return alert("这个分类已经存在");
+  S.cats.push({name:n,emoji:emo,img:img||undefined,inc:kind==="inc"});pick=n;$("c-name").value="";img=null;emo="📦";save();render();toast("已保存 ✓")};
+$("c-def").onclick=()=>{let n=0;defCats().forEach(c=>{if(!cat(c.name)){S.cats.push(c);n++}});save();render();alert(n?`已补充 ${n} 个推荐分类。`:"推荐分类你都已经有了。")};
+
+// ===== 主页
+function netWorth(){const b=bals();return S.accs.reduce((s,a)=>s+toB(b[a.id],a.cur),0)}
+function rMain(){
+  const td=today(),mo=td.slice(0,7);let mi=0,me=0,dd=0;
+  S.rows.forEach(r=>{if(r.t==="tr")return;const v=rv(r);if(r.d.slice(0,7)===mo)r.t==="inc"?mi+=v:me+=v;if(r.d===td&&r.t==="exp")dd+=v});
+  $("m-hi").textContent="你好"+(S.set.name?","+S.set.name:"");
+  $("m-dt").textContent=LANG==="en"?`${td} ${WD[PD(td).getUTCDay()]}`:`${td} 周${"日一二三四五六"[PD(td).getUTCDay()]}`;
+  const net=netWorth();$("m-net").textContent=fm(net);$("m-net").className="big "+(net<0?"neg":"");
+  $("m-mo").innerHTML=`<div class="k"><span>本月收入</span><b class="pos">${fm(mi)}</b></div><div class="k"><span>本月支出</span><b>${fm(me)}</b></div><div class="k"><span>本月结余</span><b class="${mi-me<0?"neg":"pos"}">${fm(mi-me)}</b></div><div class="k"><span>今天支出</span><b>${fm(dd)}</b></div>`;
+  curFill("s-base",S.set.base);$("s-name").value=S.set.name;$("s-base").value=S.set.base;
+  fill("s-acc",'<option value="">不指定</option>'+accOpts());$("s-acc").value=S.set.acc||"";rBg();
+}
+$("s-name").onchange=()=>{S.set.name=$("s-name").value.trim();save();render()};
+$("s-acc").onchange=()=>{S.set.acc=$("s-acc").value;save()};
+$("s-base").onchange=()=>{const v=$("s-base").value.trim().toUpperCase();if(!v||v===S.set.base){$("s-base").value=S.set.base;return}
+  if(!confirm(`把通用货币改成 ${v}?所有外币的汇率会重新联网取得,没网络时会暂用估算值。`)){$("s-base").value=S.set.base;return}
+  S.set.base=v;S.rates={};S.man={};S.rateDay=null;S.rows.forEach(r=>{delete r.rt;delete r.rf});$("n-cur").value=v;save();render();syncRates()};
+
+// ===== 资产页
+function rAcc(){
+  const B=S.set.base,b=bals();let pos=0,neg=0;S.accs.forEach(a=>{const v=toB(b[a.id],a.cur);v>=0?pos+=v:neg+=v});
+  $("a-nl").textContent=`总资产(折合 ${B})`;$("a-net").textContent=fm(pos+neg);$("a-net").className="big "+(pos+neg<0?"neg":"");
+  $("a-sub").textContent=`资产 ${fm(pos)} · 负债(欠款) ${fm(-neg)}`;
+  $("a-list").innerHTML=S.accs.map(a=>{const v=b[a.id];return `<div class="card acard" data-id="${a.id}"><span class="dh">⠿</span><div class="ph"><span class="ic">${TYPEIC[a.type]||"💼"}</span><div><b>${esc(a.name)}</b> <span class="mut">${a.type} · ${a.cur}</span>
+    <div class="big ${v<0?"neg":""}" style="font-size:22px">${fc(v,a.cur)}</div>${a.cur!==B?`<div class="mut">≈ ${fm(toB(v,a.cur))}</div>`:""}${a.type==="信用卡"&&v<0?'<div class="mut">目前欠款</div>':""}</div></div>
+    <div class="row"><button class="sec" data-a="cal" data-id="${a.id}">修正资产</button><button class="sec" data-a="delacc" data-id="${a.id}">删除账户</button></div></div>`}).join("");
+  curFill("n-cur",B);rConv();
+  $("n-quick").innerHTML=[["TNG","电子钱包"],["GrabPay","电子钱包"],["Boost","电子钱包"],["ShopeePay","电子钱包"],["Maybank","银行"],["CIMB","银行"],["Public Bank","银行"]].filter(x=>!S.accs.some(a=>a.name===x[0])).map(x=>`<button class="sec sm" data-a="qacc" data-n="${x[0]}" data-t="${x[1]}">＋ ${x[0]}</button>`).join("");
+}
+$("n-add").onclick=()=>{const n=$("n-name").value.trim(),cu=$("n-cur").value.trim().toUpperCase()||S.set.base,o=parseFloat($("n-open").value)||0;
+  if(!n)return alert("请填写账户名称");if(S.accs.some(a=>a.name===n))return alert("已经有同名账户");
+  S.accs.push({id:uid(),name:n,type:$("n-type").value,cur:cu,open:o});$("n-name").value="";save();render();syncRates();toast("已保存 ✓")};
+
+// ===== 汇率换算 + 联网取得汇率
+const hasR=c=>c===S.set.base||S.rates[c]||defR(c);
+const rn=n=>n.toLocaleString("en-US",{maximumFractionDigits:n<1?4:2});
+function rConv(){
+  const B=S.set.base,o=S.accs.find(a=>a.cur!==B);curFill("x-from",o?o.cur:(B==="JPY"?"USD":"JPY"));curFill("x-to",B);
+  const f=$("x-from").value.trim().toUpperCase(),t=$("x-to").value.trim().toUpperCase(),a=parseFloat($("x-amt").value)||0;$("x-f").textContent=f;
+  $("x-msg").textContent=S.rateDay?`汇率已联网更新(${S.rateDay})`:"还没有联网更新过,目前用的是估算汇率";
+  if(!f||!t||f===t){$("x-res").textContent="—";$("x-line").textContent="";return}
+  if(!hasR(f)||!hasR(t)){$("x-res").textContent="—";$("x-line").textContent=`还没有 ${hasR(f)?t:f} 的汇率,请联网更新,或在下面手动设定。`;return}
+  const r1=rate(f)/rate(t);$("x-res").textContent=`${rn(a)} ${f} = ${rn(a*r1)} ${t}`;
+  $("x-line").textContent=`1 ${f} = ${+r1.toFixed(6)} ${t}  ·  1 ${t} = ${+(1/r1).toFixed(6)} ${f}`;
+  if(document.activeElement!==$("x-rate"))$("x-rate").value=+r1.toFixed(6);
+}
+["x-amt","x-from","x-to"].forEach(i=>{$(i).oninput=rConv;$(i).onchange=rConv});
+$("x-swap").onclick=()=>{const f=$("x-from").value;$("x-from").value=$("x-to").value;$("x-to").value=f;rConv()};
+$("x-set").onclick=()=>{const B=S.set.base,f=$("x-from").value.trim().toUpperCase(),t=$("x-to").value.trim().toUpperCase(),v=parseFloat($("x-rate").value);
+  if(!f||!t||f===t||!(v>0))return alert("请填好两个不同的货币和汇率");
+  if(f===B){S.rates[t]=1/v;S.man[t]=1}else{S.rates[f]=v*rate(t);S.man[f]=1}
+  save();render()};
+$("x-net").onclick=async()=>{$("x-msg").textContent="正在联网更新…";S.rateDay=null;S.man={};const r=await syncRates(true);
+  $("x-msg").textContent=r.ok?`已联网更新(成功 ${r.ok} 项${r.fail?`,${r.fail} 项没取到`:""})`:"没有网络,或这些货币查不到汇率,继续使用估算汇率"};
+async function getRate(d,c){const B=S.set.base;
+  for(const u of ["https://api.frankfurter.dev/v1/","https://api.frankfurter.app/"]){
+    try{const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),8000);
+      const r=await fetch(u.includes(".dev")?`${u}${d}?base=${c}&symbols=${B}`:`${u}${d}?from=${c}&to=${B}`,{signal:ctl.signal});clearTimeout(tm);if(!r.ok)continue;
+      const j=await r.json(),v=j.rates&&j.rates[B];if(v>0)return v}catch(e){}}
+  return null}
+let syncing=false,again=null;
+async function syncRates(force){
+  if(syncing){again={force:!!(again&&again.force)||!!force};return{ok:0,fail:0}}syncing=true;let ch=false,ok=0,fail=0;const B=S.set.base,td=today();
+  try{
+    const cur=[...new Set(S.accs.map(a=>a.cur).concat(S.rows.map(r=>r.cur)))].filter(c=>c&&c!==B);
+    if(force||S.rateDay!==td){let bad=0;for(const c of cur){if(S.man[c])continue;const v=await getRate("latest",c);if(v){S.rates[c]=v;ch=true;ok++}else{bad++;fail++}}if(!bad){S.rateDay=td;ch=true}}
+    const pend={};S.rows.forEach(r=>{if(r.cur!==B&&!r.rf)pend[r.d+"|"+r.cur]=1});
+    const keys=Object.keys(pend).slice(0,40);
+    for(let i=0;i<keys.length;i+=5)await Promise.all(keys.slice(i,i+5).map(async k=>{const[d,c]=k.split("|"),v=await getRate(d>=td?"latest":d,c);
+      if(v){S.rows.forEach(r=>{if(r.d===d&&r.cur===c&&!r.rf){r.rt=v;r.rf=true}});ch=true;ok++}else fail++}));
+  }catch(e){}
+  syncing=false;if(ch){save();render()}
+  if(again){const f=again.force;again=null;const r=await syncRates(f);ok+=r.ok;fail+=r.fail}
+  return{ok,fail}}
+
+// ===== 计划页
+function rPlan(){
+  const B=S.set.base,net=netWorth();
+  document.querySelectorAll("#p-seg button").forEach(x=>x.classList.toggle("on",x.dataset.v===pv));
+  $("p-go").classList.toggle("hide",pv!=="go");$("p-done").classList.toggle("hide",pv!=="done");
+  $("p-bl").textContent=`预算 (${B})`;
+  fill("p-cat",S.cats.map(c=>`<option value="${esc(c.name)}">${c.img?"🖼️":c.emoji} ${esc(c.name)}</option>`).join(""));
+  const act=S.plans.filter(p=>!p.done),tot=act.reduce((s,p)=>s+p.budget,0);
+  $("p-list").innerHTML=`<div class="card"><div class="mut">目前总资产</div><div class="big">${fm(net)}</div>${act.length?`<div class="mut">进行中的计划共 ${fm(tot)},全部完成后剩 <b class="${net-tot<0?"neg":"pos"}">${fm(net-tot)}</b></div>`:""}</div>`
+   +act.map(p=>{const left=net-p.budget,sum=p.items.reduce((s,i)=>s+i.a,0);
+    return `<div class="card"><div class="ph">${ico(p.cat)}<div><b>${esc(p.name)}</b><div class="mut">预算 ${fm(p.budget)}</div></div></div>
+    <div class="k"><span>总资产</span><span>${fm(net)}</span></div>
+    <div class="k"><span>减去预算后剩</span><b class="${left<0?"neg":"pos"}">${fm(left)}${left<0?"(还差)":""}</b></div>
+    ${p.items.map(i=>`<div class="k"><span>· ${esc(i.n)}</span><span>${fm(i.a)} <button class="sec sm" data-a="delitem" data-id="${p.id}" data-i="${i.id}">删</button></span></div>`).join("")}
+    ${p.items.length?`<div class="mut">已列项目合计 ${fm(sum)}${sum>p.budget?`,超出预算 ${fm(sum-p.budget)}`:`,预算还有 ${fm(p.budget-sum)} 未分配`}</div>`:""}
+    <div class="row" style="margin-top:8px"><input id="in-${p.id}" placeholder="项目,如:机票"><input id="ia-${p.id}" type="number" inputmode="decimal" placeholder="金额"><button class="sec" style="flex:0 0 auto" data-a="additem" data-id="${p.id}">加</button></div>
+    <label>已购买时从哪个账户扣</label><select id="pa-${p.id}">${accOpts()}</select>
+    <div class="row" style="margin-top:10px"><button class="sec" data-a="buy" data-id="${p.id}">已购买,记入账目</button><button class="sec" data-a="delplan" data-id="${p.id}">删除计划</button></div>
+    <button class="sec" style="width:100%;margin-top:8px" data-a="finish" data-id="${p.id}">计划达成了,去记录实际花费</button></div>`}).join("");
+  rDone();
+}
+function actTotal(p){return (p.actual||[]).reduce((s,i)=>s+i.a,0)||p.spent||0}
+function rDone(){
+  const dn=S.plans.filter(p=>p.done);
+  if(!dn.length){$("p-done").innerHTML='<div class="card mut">还没有已实现的计划。在「计划中」点「计划达成了」,就可以在这里记录实际花费,并和原本的预算对比。</div>';return}
+  const tb=dn.reduce((s,p)=>s+p.budget,0),ta=dn.reduce((s,p)=>s+actTotal(p),0),td=tb-ta;
+  $("p-done").innerHTML=`<div class="card"><h2>总览</h2><div class="k"><span>已实现的计划</span><span>${dn.length} 个</span></div><div class="k"><span>预算合计</span><span>${fm(tb)}</span></div><div class="k"><span>实际花费合计</span><span>${fm(ta)}</span></div>
+    <div class="k"><span>差额</span><b class="${td<0?"neg":"pos"}">${td<0?`超支 ${fm(-td)}`:`节省 ${fm(td)}`}</b></div></div>`
+  +dn.map(p=>{const aT=actTotal(p),diff=p.budget-aT,mx=Math.max(p.budget,aT,1),pct=p.budget?Math.round(Math.abs(diff)/p.budget*100):0,act=p.actual||[];
+    const M={};(p.items||[]).forEach(i=>{const k=i.n.trim().toLowerCase();(M[k]??={n:i.n,pl:0,ac:null}).pl+=i.a});
+    act.forEach(i=>{const k=i.n.trim().toLowerCase(),o=M[k]??={n:i.n,pl:null,ac:0};o.ac=(o.ac||0)+i.a});
+    const rows=Object.values(M),posted=S.rows.filter(r=>r.pid===p.id),pt=posted.reduce((s,r)=>s+rv(r),0);
+    return `<div class="card"><div class="ph">${ico(p.cat)}<div><b>${esc(p.name)}</b><div class="mut">${p.doneDate||""}</div></div></div>
+    <div class="k"><span>预算</span><b>${fm(p.budget)}</b></div><div class="bar"><i style="width:${p.budget/mx*100}%;background:var(--hi)"></i></div>
+    <div class="k"><span>实际花费</span><b>${fm(aT)}</b></div><div class="bar"><i style="width:${aT/mx*100}%;background:${aT>p.budget?"var(--bad)":"var(--ok)"}"></i></div>
+    <div class="k"><span>差额</span><b class="${diff<0?"neg":"pos"}">${diff<0?`超支 ${fm(-diff)}`:`节省 ${fm(diff)}`}${p.budget?`(${pct}%)`:""}</b></div>
+    ${rows.length?`<h2 style="margin-top:10px;font-size:15px">项目对比(计划 vs 实际)</h2>`+rows.map(o=>{const d=o.pl!=null&&o.ac!=null?o.ac-o.pl:null;
+      return `<div class="k"><span>${esc(o.n)}${o.pl==null?" · 计划外":""}</span><span>${o.pl!=null?fm(o.pl):"—"} → ${o.ac!=null?fm(o.ac):"—"}${d!=null&&d!==0?` <b class="${d>0?"neg":"pos"}">${d>0?"+":""}${fm(d)}</b>`:""}</span></div>`}).join(""):""}
+    <h2 style="margin-top:10px;font-size:15px">实际花费明细</h2>
+    ${act.length?act.map(i=>`<div class="k"><span>· ${esc(i.n)}</span><span>${fm(i.a)} <button class="sec sm" data-a="delact" data-id="${p.id}" data-i="${i.id}">删</button></span></div>`).join(""):'<div class="mut">还没有记录。'+(p.spent?`目前用「已购买」记下的金额 ${fm(p.spent)} 作为实际花费。`:"")+'</div>'}
+    <div class="row" style="margin-top:8px"><input id="an-${p.id}" placeholder="项目,如:住宿"><input id="aa-${p.id}" type="number" inputmode="decimal" placeholder="金额"><button class="sec" style="flex:0 0 auto" data-a="addact" data-id="${p.id}">加</button></div>
+    <button class="sec" style="width:100%;margin-top:8px" data-a="impact" data-id="${p.id}">从账目导入(标签 = 计划名称的支出)</button>
+    <div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><h2 style="font-size:15px">记入账目</h2>
+    ${p.posted?`<div class="mut">已记入账目(${posted.length} 笔,共 ${fm(pt)})。之后再改实际花费不会同步,要修改请先撤销再重新记入。</div><button class="sec" style="width:100%;margin-top:6px" data-a="unpost" data-id="${p.id}">撤销记入</button>`
+    :`<div class="mut">不记入也可以,这里只用来和预算对比;记入后会从账户里扣款,并出现在日历和图表中。</div>
+    <div class="row"><div><label>记入的账户</label><select id="pj-${p.id}">${accOpts()}</select></div><div><label>记入日期</label><input type="date" id="pd-${p.id}" value="${p.doneDate||today()}"></div></div>
+    <label>记入方式</label><select id="pm-${p.id}"><option value="items">分项记入(每个项目一笔)</option><option value="sum">合计记入(一笔)</option></select>
+    <button class="sec" style="width:100%;margin-top:8px" data-a="post" data-id="${p.id}">记入账目</button>`}</div>
+    <div class="row" style="margin-top:8px"><button class="sec" data-a="reopen" data-id="${p.id}">退回计划中</button><button class="sec" data-a="delplan" data-id="${p.id}">删除</button></div></div>`}).join("");
+}
+$("p-add").onclick=()=>{const n=$("p-name").value.trim(),b=parseFloat($("p-bud").value);if(!n||isNaN(b)||b<0)return alert("请填写名称和预算");
+  S.plans.push({id:uid(),name:n,budget:b,cat:$("p-cat").value,items:[],done:false});$("p-name").value="";$("p-bud").value="";save();render();toast("已保存 ✓")};
+
+// ===== 图表页
+let CH=null;
+function rChart(){
+  fill("ch-acc",'<option value="">全部账户</option>'+accOpts());
+  fill("ch-mem",'<option value="">全部对象</option>'+[...new Set(S.rows.map(r=>isMe(r.mem)?"自己":r.mem))].map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join(""));
+  const type=$("ch-type").value,met=$("ch-met").value,f=$("ch-acc").value,fmem=$("ch-mem").value,rg=$("ch-rng").value,t=today();
+  $("ch-c").classList.toggle("hide",rg!=="c");$("ch-met").disabled=type==="flow"||type==="net";
+  let a,b;const y=t.slice(0,4),mo=t.slice(0,7);
+  if(rg==="m"){a=mo+"-01";b=t}else if(rg==="pm"){const d=new Date(+t.slice(0,4),+t.slice(5,7)-2,1),k=d.getFullYear()+"-"+pad(d.getMonth()+1);a=k+"-01";b=k+"-31"}
+  else if(rg==="y"){a=y+"-01-01";b=t}else if(rg==="all"){a=S.rows.reduce((m,r)=>r.d<m?r.d:m,t);b=t}else{a=$("ch-from").value||t;b=$("ch-to").value||t}
+  const ym=k=>LANG==="en"?`${MON[+k.slice(5,7)-1]} ${k.slice(0,4)}`:`${k.slice(0,4)}年${+k.slice(5,7)}月`;
+  const per=rg==="m"?ym(mo):rg==="pm"?ym(a):rg==="y"?(LANG==="en"?y:`${y}年`):rg==="all"?`全部期间 ${a} 至 ${b}`:`${a} 至 ${b}`;
+  const nm={pie:(met==="exp"?"支出":"收入")+"占比",bar:(met==="exp"?"支出":"收入")+"排行",flow:"收支对比",net:"资产走势",mpie:met==="exp"?"各对象花费":"各对象收入",mbar:met==="exp"?"各对象花费":"各对象收入"}[type];
+  $("ch-title").textContent=`${per} · ${nm}`;
+  const inR=r=>r.d>=a&&r.d<=b&&(!f||r.acc===f||r.to===f);
+  const R=S.rows.filter(inR),own=R.filter(r=>r.t!=="tr"&&(!f||r.acc===f)&&(!fmem||(isMe(r.mem)?"自己":r.mem)===fmem)),byM=type==="mpie"||type==="mbar",tp=byM?type.slice(1):type,K=r=>byM?(isMe(r.mem)?"自己":r.mem):r.c;
+  const sum=k=>own.filter(r=>r.t===k).reduce((s,r)=>s+rv(r),0),ei=sum("inc"),ee=sum("exp");
+  let labels=[],ds=[],cfg;const ms=$("ch-msg");ms.textContent="";
+  if(CH){CH.destroy();CH=null}
+  if(a>b){ms.textContent="开始日期不能晚于结束日期。";return}
+  if(tp==="pie"||tp==="bar"){
+    const g={};own.filter(r=>r.t===met).forEach(r=>g[K(r)]=(g[K(r)]||0)+rv(r));
+    let e=Object.entries(g).sort((x,z)=>z[1]-x[1]);
+    if(tp==="pie"&&e.length>10){const rest=e.slice(9).reduce((s,x)=>s+x[1],0);e=e.slice(0,9).concat([["其他(合并)",rest]])}
+    if(tp==="bar")e=e.slice(0,15);
+    if(!e.length)ms.textContent="这个范围内没有数据。";
+    cfg={type:tp==="pie"?"pie":"bar",data:{labels:e.map(x=>x[0]),datasets:[{label:met==="exp"?"支出 ("+S.set.base+")":"收入 ("+S.set.base+")",data:e.map(x=>+x[1].toFixed(2)),backgroundColor:e.map((x,i)=>PAL[i%PAL.length])}]},options:{indexAxis:tp==="bar"?"y":"x"}};
+  }else{
+    const end=(rg==="m"||rg==="y")?(b>t?t:b):b,byDay=(PD(end)-PD(a))/864e5<=62,keys=[];
+    if(byDay){for(let d=PD(a);d<=PD(end);d=new Date(+d+864e5))keys.push(ymd(d))}
+    else{let yy=+a.slice(0,4),mm=+a.slice(5,7);const y2=+end.slice(0,4),m2=+end.slice(5,7);while(yy<y2||(yy===y2&&mm<=m2)){keys.push(yy+"-"+pad(mm));if(++mm>12){mm=1;yy++}}}
+    const kf=d=>byDay?d:d.slice(0,7);labels=keys.map(k=>byDay?k.slice(5):k);
+    if(type==="flow"){const E={},I={};own.forEach(r=>{(r.t==="inc"?I:E)[kf(r.d)]=((r.t==="inc"?I:E)[kf(r.d)]||0)+rv(r)});
+      ds=[{label:"支出",data:keys.map(k=>+(E[k]||0).toFixed(2)),backgroundColor:"#b3392f"},{label:"收入",data:keys.map(k=>+(I[k]||0).toFixed(2)),backgroundColor:"#1f7a4d"}];cfg={type:"bar",data:{labels,datasets:ds},options:{}}}
+    else{const A=f?S.accs.filter(x=>x.id===f):S.accs;let cum=A.reduce((s,x)=>s+toB(x.open,x.cur),0);const D=[];
+      S.rows.forEach(r=>{const v=rv(r);let dv=0;if(!f){dv=r.t==="inc"?v:r.t==="exp"?-v:0}else{if(r.t==="inc"&&r.acc===f)dv=v;else if(r.t==="exp"&&r.acc===f)dv=-v;else if(r.t==="tr"){if(r.acc===f)dv-=v;if(r.to===f)dv+=v}}if(dv)D.push([r.d,dv])});
+      D.sort((x,z)=>x[0]<z[0]?-1:1);let p=0;const pts=keys.map(k=>{const ed=byDay?k:k+"-31";while(p<D.length&&D[p][0]<=ed)cum+=D[p++][1];return +cum.toFixed(2)});
+      cfg={type:"line",data:{labels,datasets:[{label:"总资产 ("+S.set.base+")",data:pts,borderColor:"#14342e",backgroundColor:"rgba(20,52,46,.12)",fill:true,tension:.25,pointRadius:keys.length>40?0:3}]},options:{}};
+      if(!S.accs.some(x=>x.open))ms.textContent="提示:到「资产」页用「修正资产」设好各账户的实际余额,这条走势才准确。"}
+  }
+  cfg.options=Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:tp==="pie"||type==="flow",position:"bottom"}}},cfg.options);
+  cfg.data.labels=cfg.data.labels.map(tx);cfg.data.datasets.forEach(d=>d.label=tx(d.label));try{CH=new Chart($("cv"),cfg)}catch(e){ms.textContent="图表无法显示:"+e.message}
+  let h=`<div class="mut">${per}</div><div class="k"><span>总支出</span><b>${fm(ee)}</b></div><div class="k"><span>总收入</span><b>${fm(ei)}</b></div><div class="k"><span>结余</span><b class="${ei-ee<0?"neg":"pos"}">${fm(ei-ee)}</b></div>`;
+  if(tp==="pie"||tp==="bar"){const g={};own.filter(r=>r.t===met).forEach(r=>g[K(r)]=(g[K(r)]||0)+rv(r));const tt=met==="exp"?ee:ei;
+    h+=`<h2 style="margin-top:12px">${met==="exp"?"支出":"收入"}排行</h2>`+Object.entries(g).sort((x,z)=>z[1]-x[1]).map(([c,v])=>`<div class="k"><span class="lr">${byM?'<span class="ic">👤</span>':ico(c)}${esc(c)}</span><span>${fm(v)} · ${tt?Math.round(v/tt*100):0}%</span></div>`).join("")}
+  $("ch-sum").innerHTML=h;
+}
+["ch-type","ch-met","ch-rng","ch-acc","ch-mem","ch-from","ch-to"].forEach(i=>$(i).onchange=rChart);
+
+// ===== 点击事件
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-a]");if(!t)return;const a=t.dataset.a,id=t.dataset.id;
+  if(a==="day"){sel=t.dataset.d}
+  else if(a==="pick"){if(Date.now()-DRG>350){if(CM)renameCat(t.dataset.n);else pick=t.dataset.n}}
+  else if(a==="emo"){emo=t.dataset.e;img=null}
+  else if(a==="delrow"){S.rows=S.rows.filter(r=>r.id!==id)}
+  else if(a==="delcat"){if(!confirm("删除分类「"+tx(t.dataset.n)+"」?已记的账目会保留。"))return;S.cats=S.cats.filter(c=>c.name!==t.dataset.n);if(pick===t.dataset.n)pick=null}
+  else if(a==="cal"){const ac=accById(id),b=bals()[id],v=parseFloat(prompt(`「${tx(ac.name)}」目前实际资产是多少 (${ac.cur})?信用卡欠款请填负数。`,Math.round(b*100)/100));if(isNaN(v))return;ac.open+=v-b}
+  else if(a==="delacc"){const ac=accById(id);if(S.rows.some(r=>r.acc===id||r.to===id))return alert("这个账户已有账目,无法删除。");if(!confirm("删除账户「"+tx(ac.name)+"」?"))return;S.accs=S.accs.filter(x=>x.id!==id)}
+  else if(a==="delplan"){if(!confirm("删除这个计划?"))return;S.plans=S.plans.filter(p=>p.id!==id)}
+  else if(a==="additem"){const n=$("in-"+id).value.trim(),v=parseFloat($("ia-"+id).value);if(!n||isNaN(v))return;S.plans.find(p=>p.id===id).items.push({id:uid(),n,a:v})}
+  else if(a==="delitem"){const p=S.plans.find(p=>p.id===id);p.items=p.items.filter(i=>i.id!==t.dataset.i)}
+  else if(a==="buy"){const p=S.plans.find(p=>p.id===id),ac=accById($("pa-"+id).value),sum=p.items.reduce((s,i)=>s+i.a,0);
+    const v=parseFloat(prompt("实际花了多少 (RM)?",sum||p.budget));if(isNaN(v)||v<=0||!ac)return;
+    S.rows.push({id:uid(),d:today(),t:"exp",c:p.cat,a:v/rate(ac.cur),acc:ac.id,cur:ac.cur,mem:S.set.mem,tag:"",note:p.name,rt:rate(ac.cur)});p.done=true;p.spent=v;p.doneDate=today()}
+  else if(a==="pv"){pv=t.dataset.v}
+  else if(a==="bgc"){setBg({t:"c",i:+t.dataset.i})}
+  else if(a==="bgs"){setBg({t:"s",i:+t.dataset.i})}
+  else if(a==="mem"){$("f-mem").value=t.dataset.n}
+  else if(a==="qacc"){S.accs.push({id:uid(),name:t.dataset.n,type:t.dataset.t,cur:S.set.base,open:0});toast("已保存 ✓")}
+  else if(a==="post"){const p=S.plans.find(p=>p.id===id),ac=accById($("pj-"+id).value),d=$("pd-"+id).value||today(),items=(p.actual||[]).filter(x=>!x.src);
+    if(!ac)return alert("请先在「资产」页新增账户");
+    if(!items.length)return alert("没有可以记入的项目。请先在上面记录实际花费(从账目导入的项目已经在账目里了,不会重复记入)。");
+    const rt=rate(ac.cur),mk=(n,v)=>({id:uid(),d,t:"exp",c:p.cat,a:v/rt,acc:ac.id,cur:ac.cur,rt,mem:S.set.mem,tag:p.name,note:n,pid:p.id});
+    if($("pm-"+id).value==="sum")S.rows.push(mk(p.name,items.reduce((s,i)=>s+i.a,0)));else items.forEach(i=>S.rows.push(mk(i.n,i.a)));
+    p.posted=true}
+  else if(a==="unpost"){S.rows=S.rows.filter(r=>r.pid!==id);S.plans.find(p=>p.id===id).posted=false}
+  else if(a==="finish"){const p=S.plans.find(p=>p.id===id);p.done=true;p.doneDate=today();p.actual=p.actual||[];pv="done"}
+  else if(a==="reopen"){S.plans.find(p=>p.id===id).done=false;pv="go"}
+  else if(a==="addact"){const n=$("an-"+id).value.trim(),v=parseFloat($("aa-"+id).value);if(!n||isNaN(v))return;const p=S.plans.find(p=>p.id===id);(p.actual=p.actual||[]).push({id:uid(),n,a:v})}
+  else if(a==="delact"){const p=S.plans.find(p=>p.id===id);p.actual=p.actual.filter(i=>i.id!==t.dataset.i)}
+  else if(a==="impact"){const p=S.plans.find(p=>p.id===id),g={};S.rows.forEach(r=>{if(r.t==="exp"&&r.tag===p.name&&!r.pid)g[r.c]=(g[r.c]||0)+rv(r)});const es=Object.entries(g);
+    if(!es.length)return alert(`没有找到标签为「${p.name}」的支出。记账时在「标签」栏填上计划名称就可以。`);
+    p.actual=(p.actual||[]).filter(x=>!x.src).concat(es.map(([c,v])=>({id:uid(),n:c,a:Math.round(v*100)/100,src:1})))}
+  else return;
+  save();render()});
+$("reset").onclick=()=>{if(!confirm("这会删除所有账目、账户、分类、计划和设定,且无法恢复。建议先点「完整备份」。确定要重置吗?"))return;S=fresh();norm();kind="exp";pick=null;save();render()};
+$("clear").onclick=()=>{if(confirm("确定清空所有账目?(账户、分类和计划会保留)")){S.rows=[];save();render()}};
+
+// ===== 导入
+function parseCSV(t){t=t.replace(/^\uFEFF/,"");const R=[];let r=[],f="",q=false;
+  for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;else if(c===","){r.push(f);f=""}
+    else if(c==="\n"||c==="\r"){if(c==="\r"&&t[i+1]==="\n")i++;r.push(f);f="";R.push(r);r=[]}else f+=c}
+  if(f!==""||r.length){r.push(f);R.push(r)}return R}
+function toDate(v){let d=v instanceof Date?v:new Date(String(v).trim().replace(/[\/.年]/g,"-").replace(/月/g,"-").replace(/日.*/,"").slice(0,10));
+  if(isNaN(d))return null;if(d.getHours()===23&&d.getMinutes()>=50)d=new Date(+d+6e5);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
+const readText=f=>new Promise(r=>{const x=new FileReader();x.onload=()=>r(x.result);x.readAsText(f,"utf-8")});
+const accType=n=>/信用|credit/i.test(n)?"信用卡":/借记|debit/i.test(n)?"借记卡":/银行|bank/i.test(n)?"银行":/钱包|tng|wallet/i.test(n)?"电子钱包":"现金";
+$("file").onchange=async e=>{const f=e.target.files[0];if(!f)return;e.target.value="";const im=$("imp");
+  try{
+    if(/\.json$/i.test(f.name)){const o=JSON.parse(await readText(f));if(!o.rows||!o.cats||!o.accs)throw new Error("这不是有效的备份文件");
+      if(!confirm("用备份覆盖现有的全部数据?"))return;S=o;norm();save();render();im.textContent="已还原备份。";return}
+    let all;if(/\.csv$/i.test(f.name))all=parseCSV(await readText(f));
+    else{const wb=XLSX.read(await f.arrayBuffer(),{cellDates:true});all=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true})}
+    const H=all[0].map(h=>String(h||"").trim().toLowerCase()),ix=(...k)=>H.findIndex(h=>k.includes(h));
+    const iD=ix("日期","date"),iC=ix("类别","分类","category"),iB=ix("大类别"),iA=ix("金额","amount"),iAc=ix("账户","account"),iCu=ix("货币","currency"),iM=ix("成员","member"),iTg=ix("标签","tag"),iN=ix("备注","note","说明"),iT=ix("收支","类型","type");
+    if(iD<0||iA<0||(iC<0&&iB<0)){im.textContent="找不到「日期 / 类别 / 金额」列,请检查第一行的标题。";return}
+    const cell=(r,i)=>i>=0&&r[i]!=null?String(r[i]).trim():"";
+    const have={},key=r=>[r.d,r.t,r.c,r.a,r.acc,r.note].join("|");S.rows.forEach(r=>{const k=key(r);have[k]=(have[k]||0)+1});const seen={};
+    let n=0,skip=0,dup=0,nc=0,na=0;
+    for(const r of all.slice(1)){
+      const d=toDate(r[iD]),v=parseFloat(cell(r,iA).replace(/[^\d.\-]/g,""));if(!d||isNaN(v)||!v){skip++;continue}
+      const ty=cell(r,iT);if(/转账|transfer/i.test(ty)){skip++;continue}
+      const c=cell(r,iC)||cell(r,iB)||"其他",inc=iT>=0?/收入|income/i.test(ty):/收入|工资|薪|income|salary/i.test(c);
+      const an=cell(r,iAc)||"现金",cu=(cell(r,iCu)||S.set.base).toUpperCase();
+      let ac=S.accs.find(x=>x.name===an);if(!ac){ac={id:uid(),name:an,type:accType(an),cur:cu,open:0};S.accs.push(ac);na++}
+      if(!cat(c)){S.cats.push({name:c,emoji:guess(c),inc});nc++}
+      const row={id:uid(),d,t:inc?"inc":"exp",c,a:Math.abs(v),acc:ac.id,cur:cu,mem:cell(r,iM)||S.set.mem,tag:cell(r,iTg),note:cell(r,iN),rt:cu===S.set.base?1:rate(cu)};
+      const k=key(row);seen[k]=(seen[k]||0)+1;if(seen[k]<=(have[k]||0)){dup++;continue}
+      S.rows.push(row);n++}
+    save();render();syncRates();im.textContent=`已导入 ${n} 笔${nc?`,新增 ${nc} 个分类`:""}${na?`,新增 ${na} 个账户`:""}${dup?`,重复 ${dup} 笔已跳过`:""}${skip?`,跳过 ${skip} 行`:""}。请到「资产」页用「修正资产」设好各账户的实际余额。`;
+  }catch(err){im.textContent="读取失败:"+err.message}};
+
+// ===== 导出(电脑下载 / 手机分享)
+const IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+async function out(name,blob){const C=window.Capacitor;
+  if(C&&C.isNativePlatform&&C.isNativePlatform()){
+    const b64=await new Promise(r=>{const x=new FileReader();x.onload=()=>r(x.result.split(",")[1]);x.readAsDataURL(blob)});
+    const w=await C.Plugins.Filesystem.writeFile({path:name,data:b64,directory:"CACHE"});await C.Plugins.Share.share({title:name,url:w.uri})
+  }else{
+    const fl=new File([blob],name,{type:/\.xlsx$/.test(name)?"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":"application/json"});
+    if(IOS&&navigator.canShare&&navigator.canShare({files:[fl]})){try{await navigator.share({files:[fl],title:name})}catch(e){if(e.name!=="AbortError")throw e}}
+    else{const x=document.createElement("a");x.href=URL.createObjectURL(blob);x.download=name;x.click()}}}
+$("exp").onclick=async()=>{if(!S.rows.length)return;
+  const data=[...S.rows].sort((x,y)=>y.d.localeCompare(x.d)).map(r=>({"日期":r.d,"大类别":"","类别":r.t==="tr"?"转账":r.c,"金额":r.a,"账户":(accById(r.acc)||{}).name||"","货币":r.cur,"成员":r.mem,"标签":r.tag,"备注":r.t==="tr"?("转入 "+((accById(r.to)||{}).name||"")+" "+r.note).trim():r.note,"收支":r.t==="inc"?"收入":r.t==="exp"?"支出":"转账"}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),"账目");
+  try{await out("jizhang-records.xlsx",new Blob([XLSX.write(wb,{bookType:"xlsx",type:"array"})]))}catch(e){alert("导出失败:"+e.message)}};
+$("bak").onclick=async()=>{try{await out("jizhang-backup.json",new Blob([JSON.stringify(S)],{type:"application/json"}))}catch(e){alert("备份失败:"+e.message)}};
+
+// ===== 外观 / 背景
+const BGK="jz_bg";
+const COLORS=[["默认绿","#edf1ef","#14342e"],["海蓝","#e6eff8","#1d4468"],["樱花粉","#fbe9f0","#8a3a58"],["薰衣草","#eee9f8","#4a3a7a"],["奶茶","#f3ebe1","#5b4636"],["薄荷","#e3f4ee","#1e6b55"],["暖阳","#fbf2d4","#7a5a00"],["石墨","#eceef0","#2b2f36"],
+ ["晨曦","linear-gradient(160deg,#ffe9d6,#e6efff)","#8a4a2a"],["晚霞","linear-gradient(160deg,#ffd3e0,#ffe9c7)","#9a3b4b"],["海雾","linear-gradient(160deg,#d6ecf7,#e8f7ef)","#1d5a6a"],["紫雾","linear-gradient(160deg,#e3dcf7,#f7e1ee)","#5a3a7a"]];
+const SCENES=[
+ {n:"晨光山丘",acc:"#2f6b4a",sky:["#ffd9a8","#ffb59e","#b9c4f2"],sun:[700,560,130,"#fff3c4"],L:[["h",980,"#9fcfa8",70],["h",1160,"#6bb08a",90],["h",1360,"#3a7a58",80]]},
+ {n:"海边日落",acc:"#7a3b2e",sky:["#ff8f6b","#ffc487","#ffe9b8"],sun:[500,860,150,"#fff3c4"],seaY:900,sea:["#3b78a6","#173a5c"],L:[]},
+ {n:"雪山",acc:"#2d4a73",sky:["#8fb8ea","#cfe3f7","#f2f8fe"],sun:[220,300,70,"#fffbe0"],L:[["p",900,"#dfeaf7"],["p",1080,"#aac4e0"],["p",1300,"#5f7fa6"]]},
+ {n:"森林",acc:"#1f5a3e",sky:["#bfe3d0","#e5f3dc","#f7fbe9"],sun:[780,260,80,"#fff6c8"],L:[["p",980,"#7cb98a"],["p",1150,"#3f8a5e"],["p",1350,"#1f5a3e"]]},
+ {n:"星夜",acc:"#2a3566",sky:["#0b1330","#1b2a5e","#3b4c8e"],sun:[760,300,90,"#fff6d0"],stars:1,L:[["h",1100,"#1a2347",80],["h",1300,"#0f1630",90]]},
+ {n:"沙漠",acc:"#8a5a24",sky:["#ffdba6","#ffc48a","#ffe7c2"],sun:[300,500,120,"#fff0b8"],L:[["h",1000,"#f0b66f",120],["h",1180,"#d99a52",130],["h",1380,"#b97a3a",100]]},
+ {n:"樱花",acc:"#9a3b62",sky:["#ffd6e4","#ffe6ee","#fff4f7"],sun:[750,360,100,"#fffbe8"],petals:1,L:[["h",1050,"#f7b8cc",80],["h",1250,"#ea8fae",100],["h",1420,"#c9668c",80]]},
+ {n:"极光",acc:"#0f5a5a",sky:["#050b1a","#0a2a3a","#0f4a4a"],sun:[200,260,60,"#e8fff8"],stars:1,aur:1,L:[["p",1150,"#0a2630"],["p",1330,"#051820"]]}];
+function sceneUri(i){const s=SCENES[i],H=[0,150,60,220,90,260,120,180,0];
+  let g=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1600" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.sky[0]}"/><stop offset=".55" stop-color="${s.sky[1]}"/><stop offset="1" stop-color="${s.sky[2]}"/></linearGradient>`
+   +(s.sea?`<linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.sea[0]}"/><stop offset="1" stop-color="${s.sea[1]}"/></linearGradient>`:"")+`</defs><rect width="1000" height="1600" fill="url(#g)"/>`;
+  if(s.stars)for(let k=0;k<40;k++)g+=`<circle cx="${(k*137)%1000}" cy="${(k*89)%700+20}" r="${k%3+1.5}" fill="#fff" opacity=".8"/>`;
+  if(s.aur)g+=`<path d="M0 420 C250 250 500 600 1000 300 V520 C600 800 300 420 0 640Z" fill="#3ef0b0" opacity=".28"/><path d="M0 560 C300 380 600 760 1000 480 V640 C650 900 300 600 0 800Z" fill="#7a6cff" opacity=".22"/>`;
+  if(s.petals)for(let k=0;k<26;k++)g+=`<circle cx="${(k*173)%1000}" cy="${(k*97)%900+60}" r="${k%4+4}" fill="#ffb3cc" opacity=".7"/>`;
+  const[cx,cy,r,c]=s.sun;g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}" opacity=".95"/>`;
+  if(s.sea){g+=`<rect y="${s.seaY}" width="1000" height="${1600-s.seaY}" fill="url(#w)"/>`;for(let k=0;k<6;k++)g+=`<rect x="${cx-130+k*16}" y="${s.seaY+30+k*48}" width="${260-k*32}" height="9" rx="4" fill="${c}" opacity=".5"/>`}
+  s.L.forEach(([t,y,col,a],k)=>{if(t==="h")g+=`<path d="M0 ${y+k*20} C250 ${y-a} 500 ${y+a} 750 ${y-a/2} S1000 ${y} 1000 ${y} V1600 H0Z" fill="${col}"/>`;
+    else{let d=`M0 ${y}`;for(let j=0;j<9;j++)d+=` L${j*125} ${y-H[(j+k*3)%9]*(k%2?.8:1)}`;g+=`<path d="${d} V1600 H0Z" fill="${col}"/>`}});
+  return "data:image/svg+xml,"+encodeURIComponent(g+"</svg>")}
+function getBg(){try{return JSON.parse(localStorage.getItem(BGK))||{t:"c",i:0}}catch(e){return{t:"c",i:0}}}
+function applyBg(){const b=getBg();let page,acc;
+  if(b.t==="s"&&SCENES[b.i]){page=`url("${sceneUri(b.i)}") center/cover no-repeat fixed`;acc=SCENES[b.i].acc}
+  else if(b.t==="i"&&b.d){page=`url("${b.d}") center/cover no-repeat fixed`;acc=COLORS[0][2]}
+  else{const c=COLORS[b.i]||COLORS[0];page=c[1];acc=c[2]}
+  const r=document.documentElement.style;r.setProperty("--page",page);r.setProperty("--acc",acc);
+  const mt=document.querySelector('meta[name=theme-color]');if(mt)mt.content=acc}
+function setBg(b){try{localStorage.setItem(BGK,JSON.stringify(b))}catch(e){alert("图片太大,储存失败,请换一张小一点的图片。");return false}applyBg();return true}
+function rBg(){const b=getBg();
+  $("bg-c").innerHTML=COLORS.map((c,i)=>`<button class="tile ${b.t==="c"&&(b.i||0)===i?"on":""}" data-a="bgc" data-i="${i}"><span class="sw" style="background:${c[1]}"></span>${c[0]}</button>`).join("");
+  $("bg-s").innerHTML=SCENES.map((s,i)=>`<button class="tile ${b.t==="s"&&b.i===i?"on":""}" data-a="bgs" data-i="${i}"><span class="sw" style="height:60px;background:url('${sceneUri(i)}') center/cover"></span>${s.n}</button>`).join("");
+  $("bg-rm").classList.toggle("hide",b.t!=="i")}
+$("bg-file").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const r=new FileReader();
+  r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1080/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+    c.getContext("2d").drawImage(im,0,0,c.width,c.height);if(setBg({t:"i",d:c.toDataURL("image/jpeg",.78)}))render()};im.src=r.result};r.readAsDataURL(f)};
+$("bg-rm").onclick=()=>{setBg({t:"c",i:0});render()};
+
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("on"),1400)}
+document.addEventListener("touchstart",()=>{},{passive:true});
+document.addEventListener("click",e=>{if(e.target.closest("button")&&navigator.vibrate){try{navigator.vibrate(8)}catch(_){}}});
+// ===== 计算器键盘(金额可以做加减乘除)
+function calc(s){s=String(s||"").replace(/[×*]/g,"*").replace(/[÷\/]/g,"/").replace(/−/g,"-").replace(/\s/g,"").replace(/[+\-*\/.]+$/,"");
+  if(!/^(\d+\.?\d*|\.\d+)([+\-*\/](\d+\.?\d*|\.\d+))*$/.test(s))return NaN;
+  const tk=s.match(/\d+\.?\d*|\.\d+|[+\-*\/]/g),a=[parseFloat(tk[0])],o=[];
+  for(let i=1;i<tk.length;i+=2){const op=tk[i],n=parseFloat(tk[i+1]);if(op==="*")a[a.length-1]*=n;else if(op==="/"){if(n===0)return NaN;a[a.length-1]/=n}else{o.push(op);a.push(n)}}
+  let r=a[0];o.forEach((op,i)=>{r+=op==="+"?a[i+1]:-a[i+1]});return Math.round(r*100)/100}
+function kres(){const s=$("f-amt").value,r=calc(s);$("f-res").textContent=/[+−×÷]/.test(s)&&!isNaN(r)?"= "+nf(r):""}
+function kpress(v){const el=$("f-amt"),ops="+−×÷";let s=el.value;
+  if(v==="C")s="";else if(v==="B")s=s.slice(0,-1);
+  else if(v==="="){const r=calc(s);if(!isNaN(r))s=String(r)}
+  else if(ops.includes(v)){if(!s)return;if(ops.includes(s.slice(-1)))s=s.slice(0,-1)+v;else if(s.slice(-1)!==".")s+=v}
+  else if(v==="."){const last=s.split(/[+−×÷]/).pop();if(last.includes("."))return;s+=last===""?"0.":"."}
+  else s+=v;
+  el.value=s;kres()}
+$("kp").onclick=e=>{const b=e.target.closest("button");if(b)kpress(b.dataset.v)};
+$("f-amt").oninput=()=>{const el=$("f-amt");el.value=el.value.replace(/\*/g,"×").replace(/\//g,"÷").replace(/-/g,"−").replace(/[^0-9.+−×÷]/g,"");kres()};
+
+// ===== 拖动排序(分类:长按拖动;账户:按住 ⠿ 拖动)
+let DRG=0;
+function sortable(box,sel,o){let st=null,tm=0;
+  const stop=()=>{clearTimeout(tm);tm=0};
+  const begin=()=>{if(!st||st.on)return;st.on=true;const it=st.it,r=it.getBoundingClientRect(),g=it.cloneNode(true);
+    g.style.cssText=`position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;opacity:.9;z-index:99;pointer-events:none;box-shadow:0 8px 18px rgba(0,0,0,.35);animation:none;transform:scale(1.06)`;
+    document.body.appendChild(g);st.g=g;st.dx=st.x-r.left;st.dy=st.y-r.top;it.style.opacity=".25";if(navigator.vibrate)try{navigator.vibrate(15)}catch(_){}};
+  box.addEventListener("pointerdown",e=>{if(!o.on()||e.button>0)return;const it=e.target.closest(sel);if(!it||!box.contains(it)||e.target.closest(".rm"))return;
+    if(o.handle&&!e.target.closest(o.handle))return;
+    st={it,x:e.clientX,y:e.clientY,id:e.pointerId,type:e.pointerType,on:false};
+    if(o.handle)begin();else if(e.pointerType!=="mouse")tm=setTimeout(begin,260)});
+  document.addEventListener("pointermove",e=>{if(!st||e.pointerId!==st.id)return;
+    if(!st.on){if(Math.hypot(e.clientX-st.x,e.clientY-st.y)>8){if(st.type==="mouse")begin();else{stop();st=null}}if(!st||!st.on)return}
+    st.g.style.left=(e.clientX-st.dx)+"px";st.g.style.top=(e.clientY-st.dy)+"px";
+    const el=document.elementFromPoint(e.clientX,e.clientY),t=el&&el.closest&&el.closest(sel);
+    if(t&&t!==st.it&&box.contains(t)){if(st.it.compareDocumentPosition(t)&Node.DOCUMENT_POSITION_FOLLOWING)t.after(st.it);else t.before(st.it)}
+    const sc=o.scroller&&o.scroller(),dy=e.clientY<110?-14:e.clientY>innerHeight-90?14:0;const tg=sc||window;if(dy&&tg.scrollBy)tg.scrollBy(0,dy)});
+  const end=()=>{stop();if(st&&st.on){st.g.remove();st.it.style.opacity="";DRG=Date.now();const ids=[...box.querySelectorAll(sel)].map(o.id);st=null;o.commit(ids)}else st=null};
+  document.addEventListener("pointerup",end);document.addEventListener("pointercancel",end);
+  document.addEventListener("touchmove",e=>{if(st&&st.on&&e.cancelable)e.preventDefault()},{passive:false})}
+sortable($("tiles"),".tile",{on:()=>CM,scroller:()=>$("entry"),id:el=>el.dataset.n,commit:names=>{
+  const k=kind==="inc",pos=S.cats.map((c,i)=>c.inc===k?i:-1).filter(i=>i>=0),by=Object.fromEntries(S.cats.map(c=>[c.name,c]));
+  pos.forEach((p,i)=>{if(by[names[i]])S.cats[p]=by[names[i]]});save();render()}});
+sortable($("a-list"),".acard",{handle:".dh",on:()=>true,id:el=>el.dataset.id,commit:ids=>{S.accs=ids.map(accById).filter(Boolean);save();render()}});
+function renameCat(old){const nv=(prompt("修改分类名称:",tx(old))||"").trim();if(!nv||nv===old||nv===tx(old))return;if(cat(nv))return alert("这个分类已经存在");
+  const c=cat(old);if(!c)return;c.name=nv;S.rows.forEach(r=>{if(r.c===old)r.c=nv});S.plans.forEach(p=>{if(p.cat===old)p.cat=nv});if(pick===old)pick=nv}
+
+// ===== 返回键(安卓系统返回键 / 浏览器返回:一层一层退回)
+const isRoot=()=>T==="book"&&!SO&&!EO&&!CM;
+let hist=false;
+function hsync(){if(!isRoot()&&!hist){try{history.pushState({jz:1},"")}catch(e){}hist=true}else if(isRoot()&&hist){hist=false;try{history.back()}catch(e){}}}
+window.addEventListener("popstate",()=>{hist=false;if(SO||EO||CM){SO=false;EO=false;CM=false;render()}else if(T!=="book")tab("book");else render()});
+{const AP=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.App;let ex=0;
+  if(AP&&AP.addListener)AP.addListener("backButton",()=>{
+    if(!isRoot()){if(hist)history.back();else{SO=EO=CM=false;if(T!=="book")tab("book");else render()}}
+    else if(Date.now()-ex<2000)AP.exitApp();else{ex=Date.now();toast("再按一次退出")}})}
+
+// ===== 农历(用系统自带的农历,离线可用)
+const LFMT=(()=>{try{const f=new Intl.DateTimeFormat("zh-CN-u-ca-chinese",{timeZone:"Asia/Shanghai",month:"long",day:"numeric"});return/正月/.test(f.format(new Date(Date.UTC(2026,1,17,4))))?f:null}catch(e){return null}})();
+const LMN={"正月":1,"二月":2,"三月":3,"四月":4,"五月":5,"六月":6,"七月":7,"八月":8,"九月":9,"十月":10,"十一月":11,"冬月":11,"十二月":12,"腊月":12};
+const LDN="初一,初二,初三,初四,初五,初六,初七,初八,初九,初十,十一,十二,十三,十四,十五,十六,十七,十八,十九,二十,廿一,廿二,廿三,廿四,廿五,廿六,廿七,廿八,廿九,三十".split(",");
+const LFE={"1-1":"春节","1-15":"元宵","5-5":"端午","7-7":"七夕","7-15":"中元","8-15":"中秋","9-9":"重阳","12-8":"腊八"};
+const LFEN={"春节":["CNY","Chinese New Year"],"元宵":["Lantern","Lantern Festival"],"端午":["Dragon","Dragon Boat Festival"],"七夕":["Qixi","Qixi Festival"],"中元":["Ghost","Hungry Ghost Festival"],"中秋":["Mid-Aut","Mid-Autumn Festival"],"重阳":["Chongyang","Double Ninth Festival"],"腊八":["Laba","Laba Festival"],"除夕":["CNY Eve","Chinese New Year's Eve"]};
+const LC=new Map();
+function lunar(ds){if(!LFMT)return null;if(LC.has(ds))return LC.get(ds);const[y,m,d]=ds.split("-").map(Number);
+  try{const ps=LFMT.formatToParts(new Date(Date.UTC(y,m-1,d,4))),mn=ps.find(p=>p.type==="month").value,dv=parseInt(ps.find(p=>p.type==="day").value,10),leap=mn[0]==="闰";
+    const r={m:LMN[leap?mn.slice(1):mn]||0,d:dv,leap,mn,dn:LDN[dv-1]||String(dv)};LC.set(ds,r);return r}catch(e){return null}}
+function lfest(ds,l){if(!l||l.leap)return"";const f=LFE[l.m+"-"+l.d];if(f)return f;
+  if(l.m===12&&l.d>=29){const n=lunar(ymd(new Date(PD(ds).getTime()+864e5)));if(n&&n.m===1&&n.d===1&&!n.leap)return"除夕"}return""}
+function lcell(ds){const l=lunar(ds);if(!l)return null;const f=lfest(ds,l);
+  if(LANG==="en")return{t:f?LFEN[f][0]:l.m+"/"+l.d,f:!!f};
+  return{t:f||(l.d===1?l.mn:l.dn),f:!!f}}
+function lline(ds){const l=lunar(ds);if(!l)return"";const f=lfest(ds,l);
+  return LANG==="en"?`Lunar ${l.leap?"leap ":""}${l.m}/${l.d}${f?" · "+LFEN[f][1]:""}`:`农历${l.mn}${l.dn}${f?" · "+f:""}`}
+let LUNAR=false;try{LUNAR=!!LFMT&&localStorage.getItem("jz_lunar")==="1"}catch(e){}
+function setLunar(v){LUNAR=!!v&&!!LFMT;try{localStorage.setItem("jz_lunar",LUNAR?"1":"0")}catch(e){}
+  $("lu-btn").classList.toggle("on",LUNAR);$("s-lunar").value=LUNAR?"1":"0";render()}
+$("lu-btn").onclick=()=>setLunar(!LUNAR);$("s-lunar").onchange=()=>setLunar($("s-lunar").value==="1");
+if(!LFMT){$("lu-btn").classList.add("hide");$("s-lunar").disabled=true}
+$("lu-btn").classList.toggle("on",LUNAR);$("s-lunar").value=LUNAR?"1":"0";
+
+// ===== 日期跟着实际时间走
+function tick(){const t=today();if(t!==lastToday){if(sel===lastToday){sel=t;vm=t.slice(0,7)}lastToday=t;render()}}
+setInterval(tick,30000);document.addEventListener("visibilitychange",()=>{tick();syncRates()});window.addEventListener("online",()=>syncRates());
+$("fab").onclick=()=>{EO=true;CM=false;$("f-date").value=sel;$("entry").classList.remove("hide");render()};
+$("e-back").onclick=()=>{EO=false;CM=false;render()};
+$("f-date").onchange=()=>{const v=$("f-date").value;if(v){sel=v;vm=v.slice(0,7);render()}};
+$("gear").onclick=()=>{SO=true;$("settings").classList.remove("hide");render()};
+$("s-back").onclick=()=>{SO=false;render()};
+applyBg();render();syncRates();
+if("serviceWorker" in navigator&&location.protocol.startsWith("http")&&!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()))navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
